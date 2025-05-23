@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ChevronLeft, Edit, Archive } from "lucide-react";
+import { ChevronLeft, Edit, Archive, Monitor } from "lucide-react";
 import { CompetitionDetail } from "@/components/dashboard/competitions/CompetitionDetail";
 import { CompetitionTabs } from "@/components/dashboard/competitions/CompetitionTabs";
 import { redirect } from "next/navigation";
@@ -141,6 +141,12 @@ export default async function CompetitionDetailPage({
             <h1 className="text-3xl font-bold tracking-tight">{competition.name}</h1>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/dashboard/display/${id}`}>
+                <Monitor className="h-4 w-4 mr-2" />
+                大屏幕管理
+              </Link>
+            </Button>
             <Button variant="outline" size="sm" asChild>
               <Link href={`/dashboard/competitions/${id}/edit`}>
                 <Edit className="h-4 w-4 mr-2" />

@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     // 保存到数据库
     const savedFile = await prisma.file.create({
       data: {
-        filename: originalName,
+        filename: filename,
         path: `/uploads/${filename}`,
         mimetype: file.type || 'application/octet-stream',
         size: file.size,
@@ -46,12 +46,14 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({
-      id: savedFile.id,
-      filename: savedFile.filename,
-      path: savedFile.path,
-      mimetype: savedFile.mimetype,
-      size: savedFile.size,
-      createdAt: savedFile.createdAt,
+      file: {
+        id: savedFile.id,
+        filename: savedFile.filename,
+        path: savedFile.path,
+        mimetype: savedFile.mimetype,
+        size: savedFile.size,
+        createdAt: savedFile.createdAt,
+      },
       programs: [],
       competitions: [],
     });

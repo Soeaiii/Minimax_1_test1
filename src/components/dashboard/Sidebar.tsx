@@ -10,7 +10,8 @@ import {
   FileText, 
   Settings,
   FileUp,
-  Scale
+  Scale,
+  Monitor
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +21,7 @@ const navItems = [
   { href: '/dashboard/programs', label: '节目管理', icon: ListMusic },
   { href: '/dashboard/participants', label: '选手管理', icon: Users },
   { href: '/dashboard/judges', label: '裁判管理', icon: Scale },
+  { href: '/dashboard/display', label: '大屏幕管理', icon: Monitor },
   { href: '/dashboard/audit-logs', label: '审计日志', icon: FileText },
   { href: '/dashboard/files', label: '文件管理', icon: FileUp },
   { href: '/dashboard/settings', label: '设置', icon: Settings },

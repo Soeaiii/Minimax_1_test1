@@ -60,6 +60,7 @@ model Competition {
   backgroundImage     File?     @relation("BackgroundImage", fields: [backgroundImageId], references: [id])
   fileIds             String[]  @db.ObjectId
   files               File[]    @relation("CompetitionFiles", fields: [fileIds], references: [id])
+  displaySettings     DisplaySettings?
   @@index([organizerId])
   @@index([status])
 }
@@ -183,6 +184,7 @@ model File {
   competitionIds String[] @db.ObjectId
   competitions  Competition[] @relation("CompetitionFiles", fields: [competitionIds], references: [id])
   backgroundImageCompetitions Competition[] @relation("BackgroundImage")
+  displayBackgrounds DisplaySettings[] @relation("DisplayBackground")
   @@index([filename])
 }
 
@@ -198,4 +200,39 @@ model AuditLog {
   user          User      @relation(fields: [userId], references: [id])
   @@index([userId])
   @@index([action])
+}
+
+// 大屏幕显示配置模型
+model DisplaySettings {
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  competitionId       String    @db.ObjectId @unique
+  currentProgramId    String?   @db.ObjectId
+  backgroundImageId   String?   @db.ObjectId
+  showJudgeScores     Boolean   @default(true)
+  showParticipants    Boolean   @default(true)
+  showProgramInfo     Boolean   @default(true)
+  title               String?
+  subtitle            String?
+  autoRefresh         Boolean   @default(true)
+  refreshInterval     Int       @default(5) // 秒
+  theme               DisplayTheme @default(MODERN)
+  titleColor          String?   @default("#ffffff") // 标题颜色
+  subtitleColor       String?   @default("#ffffff") // 副标题颜色
+  judgeNameColor      String?   @default("#1f2937") // 评委姓名颜色
+  judgeScoreColor     String?   @default("#1f2937") // 评委分数颜色
+  averageScoreColor   String?   @default("#ffffff") // 平均分颜色
+  programInfoColor    String?   @default("#ffffff") // 节目信息颜色
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  // 关系
+  competition         Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  backgroundImage     File?     @relation("DisplayBackground", fields: [backgroundImageId], references: [id])
+}
+
+enum DisplayTheme {
+  MODERN
+  CLASSIC
+  MINIMAL
+  ELEGANT
 }
