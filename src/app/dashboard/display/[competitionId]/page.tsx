@@ -51,6 +51,7 @@ interface Program {
   id: string;
   name: string;
   order: number;
+  currentStatus: 'WAITING' | 'PERFORMING' | 'COMPLETED';
   participants: Array<{
     id: string;
     name: string;
@@ -329,6 +330,51 @@ export default function DisplayManagePage() {
     fetchFiles();
   };
 
+  // 获取节目状态样式
+  const getProgramStatusStyles = (status: 'WAITING' | 'PERFORMING' | 'COMPLETED', isSelected: boolean) => {
+    const baseStyles = "h-auto p-2 flex flex-col items-center transition-all duration-200";
+    
+    if (isSelected) {
+      // 选中状态的样式
+      switch (status) {
+        case 'WAITING':
+          return `${baseStyles} bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-600`;
+        case 'PERFORMING':
+          return `${baseStyles} bg-blue-500 hover:bg-blue-600 text-white border-blue-600`;
+        case 'COMPLETED':
+          return `${baseStyles} bg-green-500 hover:bg-green-600 text-white border-green-600`;
+        default:
+          return `${baseStyles} bg-primary hover:bg-primary/80 text-primary-foreground`;
+      }
+    } else {
+      // 未选中状态的样式
+      switch (status) {
+        case 'WAITING':
+          return `${baseStyles} bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200 border`;
+        case 'PERFORMING':
+          return `${baseStyles} bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 border`;
+        case 'COMPLETED':
+          return `${baseStyles} bg-green-50 hover:bg-green-100 text-green-700 border-green-200 border`;
+        default:
+          return `${baseStyles} bg-muted hover:bg-muted/80 text-muted-foreground border border-muted`;
+      }
+    }
+  };
+
+  // 获取节目状态文本
+  const getProgramStatusText = (status: 'WAITING' | 'PERFORMING' | 'COMPLETED') => {
+    switch (status) {
+      case 'WAITING':
+        return '等待中';
+      case 'PERFORMING':
+        return '进行中';
+      case 'COMPLETED':
+        return '已完成';
+      default:
+        return '';
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -533,14 +579,18 @@ export default function DisplayManagePage() {
                           <Button
                             key={program.id}
                             type="button"
-                            variant={form.watch('currentProgramId') === program.id ? "default" : "outline"}
                             size="sm"
                             onClick={() => form.setValue('currentProgramId', program.id)}
-                            className="h-auto p-2 flex flex-col items-center"
-                            title={`${program.name} - ${program.participants.map(p => p.name).join('、')}`}
+                            className={getProgramStatusStyles(program.currentStatus, form.watch('currentProgramId') === program.id)}
+                            title={`${program.name} - ${program.participants.map(p => p.name).join('、')} (${getProgramStatusText(program.currentStatus)})`}
                           >
-                            <span className="text-lg font-bold">{program.order}</span>
-                            <span className="text-xs truncate w-full">{program.name}</span>
+                            <div className="flex flex-col items-center space-y-1 w-full">
+                              <span className="text-lg font-bold">{program.order}</span>
+                              <span className="text-xs truncate w-full">{program.name}</span>
+                              <span className="text-xs opacity-80">
+                                {getProgramStatusText(program.currentStatus)}
+                              </span>
+                            </div>
                           </Button>
                         ))}
                       </div>
@@ -549,6 +599,25 @@ export default function DisplayManagePage() {
                         暂无节目，请先在比赛管理中添加节目
                       </div>
                     )}
+                  </div>
+
+                  {/* 节目状态说明 */}
+                  <div className="text-xs space-y-2">
+                    <div className="font-medium text-muted-foreground">状态说明：</div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-yellow-200 border border-yellow-300 rounded"></div>
+                        <span className="text-yellow-700">等待中</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-blue-200 border border-blue-300 rounded"></div>
+                        <span className="text-blue-700">进行中</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-green-200 border border-green-300 rounded"></div>
+                        <span className="text-green-700">已完成</span>
+                      </div>
+                    </div>
                   </div>
 
                   {/* 快捷键提示 */}
@@ -607,13 +676,15 @@ export default function DisplayManagePage() {
                           id="titleColor"
                           type="color"
                           className="w-12 h-8 rounded cursor-pointer"
-                          {...form.register('titleColor')}
+                          value={form.watch('titleColor')}
+                          onChange={(e) => form.setValue('titleColor', e.target.value)}
                         />
                         <Input
                           type="text"
                           placeholder="#ffffff"
                           className="flex-1"
-                          {...form.register('titleColor')}
+                          value={form.watch('titleColor')}
+                          onChange={(e) => form.setValue('titleColor', e.target.value)}
                         />
                       </div>
                     </div>
@@ -625,13 +696,15 @@ export default function DisplayManagePage() {
                           id="subtitleColor"
                           type="color"
                           className="w-12 h-8 rounded cursor-pointer"
-                          {...form.register('subtitleColor')}
+                          value={form.watch('subtitleColor')}
+                          onChange={(e) => form.setValue('subtitleColor', e.target.value)}
                         />
                         <Input
                           type="text"
                           placeholder="#ffffff"
                           className="flex-1"
-                          {...form.register('subtitleColor')}
+                          value={form.watch('subtitleColor')}
+                          onChange={(e) => form.setValue('subtitleColor', e.target.value)}
                         />
                       </div>
                     </div>
@@ -643,13 +716,15 @@ export default function DisplayManagePage() {
                           id="judgeNameColor"
                           type="color"
                           className="w-12 h-8 rounded cursor-pointer"
-                          {...form.register('judgeNameColor')}
+                          value={form.watch('judgeNameColor')}
+                          onChange={(e) => form.setValue('judgeNameColor', e.target.value)}
                         />
                         <Input
                           type="text"
                           placeholder="#1f2937"
                           className="flex-1"
-                          {...form.register('judgeNameColor')}
+                          value={form.watch('judgeNameColor')}
+                          onChange={(e) => form.setValue('judgeNameColor', e.target.value)}
                         />
                       </div>
                     </div>
@@ -661,13 +736,15 @@ export default function DisplayManagePage() {
                           id="judgeScoreColor"
                           type="color"
                           className="w-12 h-8 rounded cursor-pointer"
-                          {...form.register('judgeScoreColor')}
+                          value={form.watch('judgeScoreColor')}
+                          onChange={(e) => form.setValue('judgeScoreColor', e.target.value)}
                         />
                         <Input
                           type="text"
                           placeholder="#1f2937"
                           className="flex-1"
-                          {...form.register('judgeScoreColor')}
+                          value={form.watch('judgeScoreColor')}
+                          onChange={(e) => form.setValue('judgeScoreColor', e.target.value)}
                         />
                       </div>
                     </div>
@@ -679,13 +756,15 @@ export default function DisplayManagePage() {
                           id="averageScoreColor"
                           type="color"
                           className="w-12 h-8 rounded cursor-pointer"
-                          {...form.register('averageScoreColor')}
+                          value={form.watch('averageScoreColor')}
+                          onChange={(e) => form.setValue('averageScoreColor', e.target.value)}
                         />
                         <Input
                           type="text"
                           placeholder="#ffffff"
                           className="flex-1"
-                          {...form.register('averageScoreColor')}
+                          value={form.watch('averageScoreColor')}
+                          onChange={(e) => form.setValue('averageScoreColor', e.target.value)}
                         />
                       </div>
                     </div>
@@ -697,13 +776,15 @@ export default function DisplayManagePage() {
                           id="programInfoColor"
                           type="color"
                           className="w-12 h-8 rounded cursor-pointer"
-                          {...form.register('programInfoColor')}
+                          value={form.watch('programInfoColor')}
+                          onChange={(e) => form.setValue('programInfoColor', e.target.value)}
                         />
                         <Input
                           type="text"
                           placeholder="#ffffff"
                           className="flex-1"
-                          {...form.register('programInfoColor')}
+                          value={form.watch('programInfoColor')}
+                          onChange={(e) => form.setValue('programInfoColor', e.target.value)}
                         />
                       </div>
                     </div>

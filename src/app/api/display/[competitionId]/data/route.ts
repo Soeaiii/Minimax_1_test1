@@ -190,7 +190,11 @@ export async function GET(
       where: {
         competitionId: params.competitionId,
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        order: true,
+        currentStatus: true,
         participants: {
           select: {
             id: true,
