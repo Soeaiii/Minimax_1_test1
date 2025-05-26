@@ -49,7 +49,7 @@ export async function GET(
           showJudgeScores: true,
           showParticipants: true,
           showProgramInfo: true,
-          autoRefresh: true,
+          autoRefresh: false,
           refreshInterval: 5,
           theme: 'MODERN',
           titleColor: '#ffffff',
@@ -183,6 +183,13 @@ export async function GET(
           scores: judgeData.scores,
         };
       });
+
+      // 根据选择的评委过滤结果
+      if (displaySettings.selectedJudgeIds && displaySettings.selectedJudgeIds.length > 0) {
+        judgeScores = judgeScores.filter(judgeScore => 
+          displaySettings.selectedJudgeIds.includes(judgeScore.judge.id)
+        );
+      }
     }
 
     // 获取所有节目列表（用于管理员控制）

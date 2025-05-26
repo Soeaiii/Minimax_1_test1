@@ -43,7 +43,7 @@ export async function GET(request: Request) {
       };
     }
     
-    // 查询用户，但不返回密码
+        // 查询用户，但不返回密码
     const users = await prisma.user.findMany({
       where,
       select: {
@@ -51,14 +51,15 @@ export async function GET(request: Request) {
         name: true,
         email: true,
         role: true,
+        avatar: true,
         createdAt: true,
       },
       orderBy: {
         name: 'asc',
       },
     });
-    
-    return NextResponse.json(users);
+
+    return NextResponse.json({ users });
   } catch (error) {
     console.error('Error fetching users:', error);
     return NextResponse.json(

@@ -85,6 +85,16 @@ interface DisplaySettings {
   judgeScoreColor?: string;
   averageScoreColor?: string;
   programInfoColor?: string;
+  // 评委卡片大小设置
+  judgeCardWidth?: number;
+  judgeCardPadding?: number;
+  judgeCardGap?: number;
+  judgeAvatarSize?: number;
+  judgeNameFontSize?: number;
+  judgeScoreFontSize?: number;
+  showBackgroundOverlay?: boolean;
+  overlayColor?: string;
+  overlayOpacity?: number;
   backgroundImage?: {
     id: string;
     filename: string;
@@ -108,15 +118,9 @@ interface FileItem {
 }
 
 type FormValues = {
-  currentProgramId: string;
   backgroundImageId: string;
-  showJudgeScores: boolean;
-  showParticipants: boolean;
-  showProgramInfo: boolean;
   title: string;
   subtitle: string;
-  autoRefresh: boolean;
-  refreshInterval: number;
   theme: string;
   titleColor: string;
   subtitleColor: string;
@@ -124,6 +128,16 @@ type FormValues = {
   judgeScoreColor: string;
   averageScoreColor: string;
   programInfoColor: string;
+  // 评委卡片大小设置
+  judgeCardWidth: number;
+  judgeCardPadding: number;
+  judgeCardGap: number;
+  judgeAvatarSize: number;
+  judgeNameFontSize: number;
+  judgeScoreFontSize: number;
+  showBackgroundOverlay: boolean;
+  overlayColor: string;
+  overlayOpacity: number;
 };
 
 export default function DisplayManagePage() {
@@ -144,15 +158,9 @@ export default function DisplayManagePage() {
 
   const form = useForm<FormValues>({
     defaultValues: {
-      currentProgramId: 'none',
       backgroundImageId: '',
-      showJudgeScores: true,
-      showParticipants: true,
-      showProgramInfo: true,
       title: '',
       subtitle: '',
-      autoRefresh: true,
-      refreshInterval: 5,
       theme: 'MODERN',
       titleColor: '#ffffff',
       subtitleColor: '#ffffff',
@@ -160,24 +168,32 @@ export default function DisplayManagePage() {
       judgeScoreColor: '#1f2937',
       averageScoreColor: '#ffffff',
       programInfoColor: '#ffffff',
+      judgeCardWidth: 288,
+      judgeCardPadding: 32,
+      judgeCardGap: 40,
+      judgeAvatarSize: 176,
+      judgeNameFontSize: 20,
+      judgeScoreFontSize: 36,
+      showBackgroundOverlay: true,
+      overlayColor: '#000000',
+      overlayOpacity: 0.4,
     },
   });
 
+  // 检查用户权限
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/login');
+    if (status === 'loading') return;
+    
+    if (!session) {
+      router.push(`/auth/login?callbackUrl=/dashboard/display/${competitionId}`);
       return;
     }
 
-    if (status === 'authenticated' && session?.user?.role !== 'ADMIN' && session?.user?.role !== 'ORGANIZER') {
+    if (session.user.role !== 'ADMIN') {
       router.push('/unauthorized');
       return;
     }
-
-    if (status === 'authenticated') {
-      fetchDisplayData();
-    }
-  }, [status, session, router, competitionId]);
+  }, [session, status, router, competitionId]);
 
   const fetchDisplayData = async () => {
     try {
@@ -191,15 +207,9 @@ export default function DisplayManagePage() {
 
       // 更新表单默认值
       form.reset({
-        currentProgramId: data.settings.currentProgramId || 'none',
         backgroundImageId: data.settings.backgroundImageId || '',
-        showJudgeScores: data.settings.showJudgeScores,
-        showParticipants: data.settings.showParticipants,
-        showProgramInfo: data.settings.showProgramInfo,
         title: data.settings.title || '',
         subtitle: data.settings.subtitle || '',
-        autoRefresh: data.settings.autoRefresh,
-        refreshInterval: data.settings.refreshInterval,
         theme: data.settings.theme,
         titleColor: data.settings.titleColor || '#ffffff',
         subtitleColor: data.settings.subtitleColor || '#ffffff',
@@ -207,6 +217,15 @@ export default function DisplayManagePage() {
         judgeScoreColor: data.settings.judgeScoreColor || '#1f2937',
         averageScoreColor: data.settings.averageScoreColor || '#ffffff',
         programInfoColor: data.settings.programInfoColor || '#ffffff',
+        judgeCardWidth: data.settings.judgeCardWidth || 288,
+        judgeCardPadding: data.settings.judgeCardPadding || 32,
+        judgeCardGap: data.settings.judgeCardGap || 40,
+        judgeAvatarSize: data.settings.judgeAvatarSize || 176,
+        judgeNameFontSize: data.settings.judgeNameFontSize || 20,
+        judgeScoreFontSize: data.settings.judgeScoreFontSize || 36,
+        showBackgroundOverlay: data.settings.showBackgroundOverlay ?? true,
+        overlayColor: data.settings.overlayColor || '#000000',
+        overlayOpacity: data.settings.overlayOpacity ?? 0.4,
       });
 
       setError(null);
@@ -226,10 +245,8 @@ export default function DisplayManagePage() {
         throw new Error('获取文件列表失败');
       }
       const data = await response.json();
-      // 只获取图片文件
-      const imageFiles = data.filter((file: FileItem) => 
-        file.mimetype.startsWith('image/')
-      );
+      // 过滤出图片文件
+      const imageFiles = data.filter((file: FileItem) => file.mimetype.startsWith('image/'));
       setFiles(imageFiles);
     } catch (error) {
       console.error('Error fetching files:', error);
@@ -238,6 +255,10 @@ export default function DisplayManagePage() {
       setLoadingFiles(false);
     }
   };
+
+  useEffect(() => {
+    fetchDisplayData();
+  }, [competitionId]);
 
   const onSubmit = async (data: FormValues) => {
     try {
@@ -272,15 +293,15 @@ export default function DisplayManagePage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // 验证文件类型
+    // 检查文件类型
     if (!file.type.startsWith('image/')) {
       setError('请选择图片文件');
       return;
     }
 
-    // 验证文件大小 (5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('图片大小不能超过5MB');
+    // 检查文件大小 (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('文件大小不能超过 10MB');
       return;
     }
 
@@ -290,7 +311,6 @@ export default function DisplayManagePage() {
 
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('type', 'background');
 
       const response = await fetch('/api/files/upload', {
         method: 'POST',
@@ -302,8 +322,6 @@ export default function DisplayManagePage() {
       }
 
       const result = await response.json();
-      
-      // 更新表单中的背景图片ID
       form.setValue('backgroundImageId', result.file.id);
       setSuccessMessage('背景图片上传成功！');
       setTimeout(() => setSuccessMessage(null), 3000);
@@ -311,6 +329,8 @@ export default function DisplayManagePage() {
       setError(error instanceof Error ? error.message : '上传失败');
     } finally {
       setUploading(false);
+      // 重置文件输入
+      event.target.value = '';
     }
   };
 
@@ -321,66 +341,19 @@ export default function DisplayManagePage() {
   const handleSelectFile = (file: FileItem) => {
     form.setValue('backgroundImageId', file.id);
     setFileDialogOpen(false);
-    setSuccessMessage('背景图片选择成功！');
-    setTimeout(() => setSuccessMessage(null), 3000);
   };
 
   const handleOpenFileDialog = () => {
-    setFileDialogOpen(true);
     fetchFiles();
+    setFileDialogOpen(true);
   };
 
-  // 获取节目状态样式
-  const getProgramStatusStyles = (status: 'WAITING' | 'PERFORMING' | 'COMPLETED', isSelected: boolean) => {
-    const baseStyles = "h-auto p-2 flex flex-col items-center transition-all duration-200";
-    
-    if (isSelected) {
-      // 选中状态的样式
-      switch (status) {
-        case 'WAITING':
-          return `${baseStyles} bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-600`;
-        case 'PERFORMING':
-          return `${baseStyles} bg-blue-500 hover:bg-blue-600 text-white border-blue-600`;
-        case 'COMPLETED':
-          return `${baseStyles} bg-green-500 hover:bg-green-600 text-white border-green-600`;
-        default:
-          return `${baseStyles} bg-primary hover:bg-primary/80 text-primary-foreground`;
-      }
-    } else {
-      // 未选中状态的样式
-      switch (status) {
-        case 'WAITING':
-          return `${baseStyles} bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200 border`;
-        case 'PERFORMING':
-          return `${baseStyles} bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 border`;
-        case 'COMPLETED':
-          return `${baseStyles} bg-green-50 hover:bg-green-100 text-green-700 border-green-200 border`;
-        default:
-          return `${baseStyles} bg-muted hover:bg-muted/80 text-muted-foreground border border-muted`;
-      }
-    }
-  };
-
-  // 获取节目状态文本
-  const getProgramStatusText = (status: 'WAITING' | 'PERFORMING' | 'COMPLETED') => {
-    switch (status) {
-      case 'WAITING':
-        return '等待中';
-      case 'PERFORMING':
-        return '进行中';
-      case 'COMPLETED':
-        return '已完成';
-      default:
-        return '';
-    }
-  };
-
-  if (loading) {
+  if (status === 'loading' || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">加载大屏幕设置...</p>
+          <p className="text-lg">加载中...</p>
         </div>
       </div>
     );
@@ -388,25 +361,13 @@ export default function DisplayManagePage() {
 
   if (error && !displayData) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center">
-          <Button variant="ghost" size="sm" asChild className="mr-2">
-            <Link href="/dashboard/competitions">
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              返回
-            </Link>
-          </Button>
+      <div className="container mx-auto py-6">
+        <div className="text-center">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-red-600 mb-2">加载失败</h2>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <Button onClick={fetchDisplayData}>重新加载</Button>
         </div>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <div className="text-red-500 text-6xl mb-4">⚠️</div>
-              <h2 className="text-2xl font-bold text-red-600 mb-2">加载失败</h2>
-              <p className="text-muted-foreground mb-4">{error}</p>
-              <Button onClick={fetchDisplayData}>重新加载</Button>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     );
   }
@@ -414,44 +375,30 @@ export default function DisplayManagePage() {
   if (!displayData) return null;
 
   const { settings, competition, programs } = displayData;
-  const backgroundImageId = form.watch('backgroundImageId');
-  const currentBackgroundImage = settings.backgroundImage;
 
   return (
-    <div className="space-y-6">
-      {/* 头部导航 */}
+    <div className="container mx-auto py-6 space-y-6">
+      {/* 页面标题 */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <Button variant="ghost" size="sm" asChild className="mr-2">
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" size="sm" asChild>
             <Link href={`/dashboard/competitions/${competitionId}`}>
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              返回比赛详情
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              返回比赛管理
             </Link>
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center">
-            <Monitor className="h-8 w-8 mr-3" />
-            大屏幕管理
-          </h1>
+          <div>
+            <h1 className="text-3xl font-bold">大屏幕设置</h1>
+            <p className="text-muted-foreground">{competition.name}</p>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link href={`/display/${competitionId}`} target="_blank">
-              <ExternalLink className="h-4 w-4 mr-2" />
-              预览大屏幕
-            </Link>
-          </Button>
-        </div>
+        <Button variant="outline" asChild>
+          <Link href={`/display/${competitionId}`} target="_blank">
+            <ExternalLink className="h-4 w-4 mr-2" />
+            预览大屏幕
+          </Link>
+        </Button>
       </div>
-
-      {/* 比赛信息 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{competition.name}</CardTitle>
-          <CardDescription>
-            {competition.description}
-          </CardDescription>
-        </CardHeader>
-      </Card>
 
       {/* 成功/错误消息 */}
       {successMessage && (
@@ -466,586 +413,347 @@ export default function DisplayManagePage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 左侧：显示设置 */}
-        <div className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 基本设置 */}
           <Card>
             <CardHeader>
-              <CardTitle>显示设置</CardTitle>
-              <CardDescription>
-                配置大屏幕的显示内容和样式
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                {/* 当前节目选择 */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-base font-semibold">节目控制台</Label>
-                    <Button
-                      type="button"
-                      onClick={() => form.handleSubmit(onSubmit)()}
-                      disabled={saving}
-                      size="sm"
-                      className="h-8"
-                    >
-                      <Save className="h-4 w-4 mr-1" />
-                      {saving ? '保存中...' : '保存切换'}
-                    </Button>
-                  </div>
-                  
-                  {/* 当前节目显示 */}
-                  <div className="border rounded-lg p-4 bg-muted/50">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-medium text-muted-foreground">当前节目</span>
-                      <div className="flex gap-1">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const currentIndex = programs.findIndex(p => p.id === form.watch('currentProgramId'));
-                            if (currentIndex > 0) {
-                              form.setValue('currentProgramId', programs[currentIndex - 1].id);
-                            }
-                          }}
-                          disabled={!form.watch('currentProgramId') || programs.findIndex(p => p.id === form.watch('currentProgramId')) <= 0}
-                          className="h-8 px-2"
-                        >
-                          ← 上一个
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const currentIndex = programs.findIndex(p => p.id === form.watch('currentProgramId'));
-                            if (currentIndex >= 0 && currentIndex < programs.length - 1) {
-                              form.setValue('currentProgramId', programs[currentIndex + 1].id);
-                            }
-                          }}
-                          disabled={!form.watch('currentProgramId') || programs.findIndex(p => p.id === form.watch('currentProgramId')) >= programs.length - 1}
-                          className="h-8 px-2"
-                        >
-                          下一个 →
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    {form.watch('currentProgramId') ? (
-                      (() => {
-                        const currentProgram = programs.find(p => p.id === form.watch('currentProgramId'));
-                        return currentProgram ? (
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-3">
-                              <Badge variant="secondary" className="text-lg px-3 py-1">
-                                第 {currentProgram.order} 号
-                              </Badge>
-                              <h3 className="text-lg font-semibold">{currentProgram.name}</h3>
-                            </div>
-                            {currentProgram.participants.length > 0 && (
-                              <div className="text-sm text-muted-foreground">
-                                参赛者：{currentProgram.participants.map(p => p.name).join('、')}
-                              </div>
-                            )}
-                          </div>
-                        ) : null;
-                      })()
-                    ) : (
-                      <div className="text-center py-2">
-                        <span className="text-muted-foreground">未选择节目</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 快速切换网格 */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">快速切换</span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => form.setValue('currentProgramId', '')}
-                        className="h-8 px-3 text-xs"
-                      >
-                        清除选择
-                      </Button>
-                    </div>
-                    
-                    {programs.length > 0 ? (
-                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                        {programs.map((program) => (
-                          <Button
-                            key={program.id}
-                            type="button"
-                            size="sm"
-                            onClick={() => form.setValue('currentProgramId', program.id)}
-                            className={getProgramStatusStyles(program.currentStatus, form.watch('currentProgramId') === program.id)}
-                            title={`${program.name} - ${program.participants.map(p => p.name).join('、')} (${getProgramStatusText(program.currentStatus)})`}
-                          >
-                            <div className="flex flex-col items-center space-y-1 w-full">
-                              <span className="text-lg font-bold">{program.order}</span>
-                              <span className="text-xs truncate w-full">{program.name}</span>
-                              <span className="text-xs opacity-80">
-                                {getProgramStatusText(program.currentStatus)}
-                              </span>
-                            </div>
-                          </Button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50 text-center">
-                        暂无节目，请先在比赛管理中添加节目
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 节目状态说明 */}
-                  <div className="text-xs space-y-2">
-                    <div className="font-medium text-muted-foreground">状态说明：</div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 bg-yellow-200 border border-yellow-300 rounded"></div>
-                        <span className="text-yellow-700">等待中</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 bg-blue-200 border border-blue-300 rounded"></div>
-                        <span className="text-blue-700">进行中</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 bg-green-200 border border-green-300 rounded"></div>
-                        <span className="text-green-700">已完成</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 快捷键提示 */}
-                  <div className="text-xs text-muted-foreground bg-muted/30 rounded p-2">
-                    💡 提示：切换节目后点击右上角的"保存切换"按钮立即生效
-                  </div>
-                </div>
-
-                {/* 标题和副标题 */}
-                <div className="space-y-2">
-                  <Label htmlFor="title">大屏幕标题</Label>
-                  <Input
-                    id="title"
-                    placeholder="自定义标题（留空使用比赛名称）"
-                    {...form.register('title')}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="subtitle">副标题</Label>
-                  <Input
-                    id="subtitle"
-                    placeholder="副标题（可选）"
-                    {...form.register('subtitle')}
-                  />
-                </div>
-
-                {/* 主题选择 */}
-                <div className="space-y-2">
-                  <Label htmlFor="theme">显示主题</Label>
-                  <Select
-                    value={form.watch('theme')}
-                    onValueChange={(value) => form.setValue('theme', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MODERN">现代</SelectItem>
-                      <SelectItem value="CLASSIC">经典</SelectItem>
-                      <SelectItem value="MINIMAL">简约</SelectItem>
-                      <SelectItem value="ELEGANT">优雅</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* 字体颜色设置 */}
-                <div className="space-y-4">
-                  <Label className="text-base font-semibold">字体颜色设置</Label>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="titleColor">标题颜色</Label>
-                      <div className="flex items-center space-x-2">
-                        <Input
-                          id="titleColor"
-                          type="color"
-                          className="w-12 h-8 rounded cursor-pointer"
-                          value={form.watch('titleColor')}
-                          onChange={(e) => form.setValue('titleColor', e.target.value)}
-                        />
-                        <Input
-                          type="text"
-                          placeholder="#ffffff"
-                          className="flex-1"
-                          value={form.watch('titleColor')}
-                          onChange={(e) => form.setValue('titleColor', e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="subtitleColor">副标题颜色</Label>
-                      <div className="flex items-center space-x-2">
-                        <Input
-                          id="subtitleColor"
-                          type="color"
-                          className="w-12 h-8 rounded cursor-pointer"
-                          value={form.watch('subtitleColor')}
-                          onChange={(e) => form.setValue('subtitleColor', e.target.value)}
-                        />
-                        <Input
-                          type="text"
-                          placeholder="#ffffff"
-                          className="flex-1"
-                          value={form.watch('subtitleColor')}
-                          onChange={(e) => form.setValue('subtitleColor', e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="judgeNameColor">评委姓名颜色</Label>
-                      <div className="flex items-center space-x-2">
-                        <Input
-                          id="judgeNameColor"
-                          type="color"
-                          className="w-12 h-8 rounded cursor-pointer"
-                          value={form.watch('judgeNameColor')}
-                          onChange={(e) => form.setValue('judgeNameColor', e.target.value)}
-                        />
-                        <Input
-                          type="text"
-                          placeholder="#1f2937"
-                          className="flex-1"
-                          value={form.watch('judgeNameColor')}
-                          onChange={(e) => form.setValue('judgeNameColor', e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="judgeScoreColor">评委分数颜色</Label>
-                      <div className="flex items-center space-x-2">
-                        <Input
-                          id="judgeScoreColor"
-                          type="color"
-                          className="w-12 h-8 rounded cursor-pointer"
-                          value={form.watch('judgeScoreColor')}
-                          onChange={(e) => form.setValue('judgeScoreColor', e.target.value)}
-                        />
-                        <Input
-                          type="text"
-                          placeholder="#1f2937"
-                          className="flex-1"
-                          value={form.watch('judgeScoreColor')}
-                          onChange={(e) => form.setValue('judgeScoreColor', e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="averageScoreColor">平均分颜色</Label>
-                      <div className="flex items-center space-x-2">
-                        <Input
-                          id="averageScoreColor"
-                          type="color"
-                          className="w-12 h-8 rounded cursor-pointer"
-                          value={form.watch('averageScoreColor')}
-                          onChange={(e) => form.setValue('averageScoreColor', e.target.value)}
-                        />
-                        <Input
-                          type="text"
-                          placeholder="#ffffff"
-                          className="flex-1"
-                          value={form.watch('averageScoreColor')}
-                          onChange={(e) => form.setValue('averageScoreColor', e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="programInfoColor">节目信息颜色</Label>
-                      <div className="flex items-center space-x-2">
-                        <Input
-                          id="programInfoColor"
-                          type="color"
-                          className="w-12 h-8 rounded cursor-pointer"
-                          value={form.watch('programInfoColor')}
-                          onChange={(e) => form.setValue('programInfoColor', e.target.value)}
-                        />
-                        <Input
-                          type="text"
-                          placeholder="#ffffff"
-                          className="flex-1"
-                          value={form.watch('programInfoColor')}
-                          onChange={(e) => form.setValue('programInfoColor', e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        // 重置为默认颜色
-                        form.setValue('titleColor', '#ffffff');
-                        form.setValue('subtitleColor', '#ffffff');
-                        form.setValue('judgeNameColor', '#1f2937');
-                        form.setValue('judgeScoreColor', '#1f2937');
-                        form.setValue('averageScoreColor', '#ffffff');
-                        form.setValue('programInfoColor', '#ffffff');
-                      }}
-                    >
-                      重置默认颜色
-                    </Button>
-                  </div>
-                </div>
-
-                {/* 显示开关 */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="showJudgeScores">显示裁判评分</Label>
-                    <Switch
-                      id="showJudgeScores"
-                      checked={form.watch('showJudgeScores')}
-                      onCheckedChange={(checked) => form.setValue('showJudgeScores', checked)}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="showParticipants">显示参赛者信息</Label>
-                    <Switch
-                      id="showParticipants"
-                      checked={form.watch('showParticipants')}
-                      onCheckedChange={(checked) => form.setValue('showParticipants', checked)}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="showProgramInfo">显示节目信息</Label>
-                    <Switch
-                      id="showProgramInfo"
-                      checked={form.watch('showProgramInfo')}
-                      onCheckedChange={(checked) => form.setValue('showProgramInfo', checked)}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="autoRefresh">自动刷新</Label>
-                    <Switch
-                      id="autoRefresh"
-                      checked={form.watch('autoRefresh')}
-                      onCheckedChange={(checked) => form.setValue('autoRefresh', checked)}
-                    />
-                  </div>
-                </div>
-
-                {/* 刷新间隔 */}
-                {form.watch('autoRefresh') && (
-                  <div className="space-y-2">
-                    <Label htmlFor="refreshInterval">刷新间隔（秒）</Label>
-                    <Input
-                      id="refreshInterval"
-                      type="number"
-                      min="1"
-                      max="60"
-                      {...form.register('refreshInterval', { valueAsNumber: true })}
-                    />
-                  </div>
-                )}
-
-                <Button type="submit" disabled={saving} className="w-full">
-                  <Save className="h-4 w-4 mr-2" />
-                  {saving ? '保存中...' : '保存设置'}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* 右侧：背景管理 */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>背景图片管理</CardTitle>
-              <CardDescription>
-                上传和管理大屏幕背景图片
-              </CardDescription>
+              <CardTitle>基本设置</CardTitle>
+              <CardDescription>配置大屏幕的基本显示信息</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* 当前背景图片 */}
-              {currentBackgroundImage && (
+              <div className="space-y-2">
+                <Label htmlFor="title">标题</Label>
+                <Input
+                  id="title"
+                  placeholder="比赛标题（留空使用比赛名称）"
+                  {...form.register('title')}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="subtitle">副标题</Label>
+                <Input
+                  id="subtitle"
+                  placeholder="副标题（可选）"
+                  {...form.register('subtitle')}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="theme">主题</Label>
+                <Select
+                  value={form.watch('theme')}
+                  onValueChange={(value) => form.setValue('theme', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MODERN">现代风格</SelectItem>
+                    <SelectItem value="CLASSIC">经典风格</SelectItem>
+                    <SelectItem value="MINIMAL">简约风格</SelectItem>
+                    <SelectItem value="ELEGANT">优雅风格</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 背景设置 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>背景设置</CardTitle>
+              <CardDescription>设置大屏幕的背景图片和遮罩</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 当前背景预览 */}
+              {form.watch('backgroundImageId') && (
                 <div className="space-y-2">
-                  <Label>当前背景图片</Label>
-                  <div className="relative border rounded-lg overflow-hidden">
+                  <Label>当前背景</Label>
+                  <div className="relative">
                     <img
-                      src={currentBackgroundImage.path}
-                      alt="背景图片"
-                      className="w-full h-40 object-cover"
-                      onError={(e) => {
-                        console.error('背景图片加载失败:', currentBackgroundImage.filename);
-                        e.currentTarget.style.display = 'none';
-                      }}
-                      onLoad={() => {
-                        console.log('背景图片加载成功:', currentBackgroundImage.filename);
-                      }}
+                      src={`/api/files/${form.watch('backgroundImageId')}/preview`}
+                      alt="背景预览"
+                      className="w-full h-32 object-cover rounded-md border"
                     />
-                    <div className="absolute top-2 right-2">
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={handleRemoveBackground}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                      {currentBackgroundImage.filename}
-                    </div>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={handleRemoveBackground}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               )}
 
-              {/* 上传新背景 */}
+              {/* 背景上传 */}
               <div className="space-y-2">
-                <Label htmlFor="background">背景图片管理</Label>
-                <div className="grid grid-cols-1 gap-3">
-                  {/* 上传新图片 */}
-                  <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center">
-                    <input
-                      id="background"
+                <Label>背景图片</Label>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Input
                       type="file"
                       accept="image/*"
                       onChange={handleBackgroundUpload}
-                      className="hidden"
+                      disabled={uploading}
                     />
-                    <Label
-                      htmlFor="background"
-                      className="cursor-pointer flex flex-col items-center space-y-2"
-                    >
-                      {uploading ? (
-                        <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
-                      ) : (
-                        <Upload className="h-6 w-6 text-muted-foreground" />
-                      )}
-                      <span className="text-sm font-medium">
-                        {uploading ? '上传中...' : '上传新图片'}
-                      </span>
-                    </Label>
                   </div>
-                  
-                  {/* 从文件库选择 */}
-                  <Dialog open={fileDialogOpen} onOpenChange={setFileDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        className="w-full h-16 flex flex-col items-center justify-center space-y-1"
-                        onClick={handleOpenFileDialog}
-                      >
-                        <FolderOpen className="h-6 w-6" />
-                        <span className="text-sm">从文件库选择</span>
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
-                      <DialogHeader>
-                        <DialogTitle>选择背景图片</DialogTitle>
-                        <DialogDescription>
-                          从已上传的图片中选择一张作为背景
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="overflow-y-auto max-h-96">
-                        {loadingFiles ? (
-                          <div className="flex items-center justify-center py-8">
-                            <RefreshCw className="h-8 w-8 animate-spin" />
-                            <span className="ml-2">加载文件中...</span>
-                          </div>
-                        ) : files.length === 0 ? (
-                          <div className="text-center py-8">
-                            <ImageIcon className="mx-auto h-12 w-12 text-muted-foreground" />
-                            <h3 className="mt-4 text-lg font-semibold">没有图片文件</h3>
-                            <p className="text-muted-foreground">
-                              请先上传一些图片文件
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {files.map((file) => (
-                              <div
-                                key={file.id}
-                                className="group relative cursor-pointer rounded-lg border border-muted overflow-hidden hover:border-primary transition-colors"
-                                onClick={() => handleSelectFile(file)}
-                              >
-                                <div className="aspect-square relative">
-                                  <img
-                                    src={file.path}
-                                    alt={file.filename}
-                                    className="w-full h-full object-cover"
-                                  />
-                                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <Button size="sm" variant="secondary">
-                                        选择
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="p-2">
-                                  <p className="text-xs text-muted-foreground truncate">
-                                    {file.filename}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {(file.size / 1024 / 1024).toFixed(1)} MB
-                                  </p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleOpenFileDialog}
+                    disabled={uploading}
+                  >
+                    <FolderOpen className="h-4 w-4 mr-2" />
+                    选择已有
+                  </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  支持 JPG、PNG 格式，最大 5MB
-                </p>
+                {uploading && (
+                  <p className="text-sm text-muted-foreground">上传中...</p>
+                )}
               </div>
-            </CardContent>
-          </Card>
 
-          {/* 实时预览 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Eye className="h-5 w-5 mr-2" />
-                快速预览
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  点击下方链接在新窗口中查看大屏幕效果
-                </p>
-                <Button variant="outline" asChild className="w-full">
-                  <Link href={`/display/${competitionId}`} target="_blank">
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    在新窗口中预览
-                  </Link>
-                </Button>
+              {/* 遮罩设置 */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="showBackgroundOverlay">启用背景遮罩</Label>
+                  <Switch
+                    id="showBackgroundOverlay"
+                    checked={form.watch('showBackgroundOverlay')}
+                    onCheckedChange={(checked) => form.setValue('showBackgroundOverlay', checked)}
+                  />
+                </div>
+
+                {form.watch('showBackgroundOverlay') && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="overlayColor">遮罩颜色</Label>
+                      <Input
+                        id="overlayColor"
+                        type="color"
+                        {...form.register('overlayColor')}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="overlayOpacity">遮罩透明度</Label>
+                      <Input
+                        id="overlayOpacity"
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        {...form.register('overlayOpacity', { valueAsNumber: true })}
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        当前值: {form.watch('overlayOpacity')}
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
-      </div>
+
+        {/* 颜色设置 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>颜色设置</CardTitle>
+            <CardDescription>自定义各个元素的颜色</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="titleColor">标题颜色</Label>
+                <Input
+                  id="titleColor"
+                  type="color"
+                  {...form.register('titleColor')}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="subtitleColor">副标题颜色</Label>
+                <Input
+                  id="subtitleColor"
+                  type="color"
+                  {...form.register('subtitleColor')}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="judgeNameColor">评委姓名颜色</Label>
+                <Input
+                  id="judgeNameColor"
+                  type="color"
+                  {...form.register('judgeNameColor')}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="judgeScoreColor">评委分数颜色</Label>
+                <Input
+                  id="judgeScoreColor"
+                  type="color"
+                  {...form.register('judgeScoreColor')}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="averageScoreColor">平均分颜色</Label>
+                <Input
+                  id="averageScoreColor"
+                  type="color"
+                  {...form.register('averageScoreColor')}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="programInfoColor">节目信息颜色</Label>
+                <Input
+                  id="programInfoColor"
+                  type="color"
+                  {...form.register('programInfoColor')}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 评委卡片设置 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>评委卡片设置</CardTitle>
+            <CardDescription>调整评委卡片的大小和间距</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="judgeCardWidth">卡片宽度 (px)</Label>
+                <Input
+                  id="judgeCardWidth"
+                  type="number"
+                  min="200"
+                  max="400"
+                  {...form.register('judgeCardWidth', { valueAsNumber: true })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="judgeCardPadding">卡片内边距 (px)</Label>
+                <Input
+                  id="judgeCardPadding"
+                  type="number"
+                  min="16"
+                  max="64"
+                  {...form.register('judgeCardPadding', { valueAsNumber: true })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="judgeCardGap">卡片间距 (px)</Label>
+                <Input
+                  id="judgeCardGap"
+                  type="number"
+                  min="20"
+                  max="80"
+                  {...form.register('judgeCardGap', { valueAsNumber: true })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="judgeAvatarSize">头像大小 (px)</Label>
+                <Input
+                  id="judgeAvatarSize"
+                  type="number"
+                  min="100"
+                  max="250"
+                  {...form.register('judgeAvatarSize', { valueAsNumber: true })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="judgeNameFontSize">姓名字体大小 (px)</Label>
+                <Input
+                  id="judgeNameFontSize"
+                  type="number"
+                  min="14"
+                  max="32"
+                  {...form.register('judgeNameFontSize', { valueAsNumber: true })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="judgeScoreFontSize">分数字体大小 (px)</Label>
+                <Input
+                  id="judgeScoreFontSize"
+                  type="number"
+                  min="24"
+                  max="60"
+                  {...form.register('judgeScoreFontSize', { valueAsNumber: true })}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 保存按钮 */}
+        <div className="flex justify-end">
+          <Button type="submit" disabled={saving}>
+            <Save className="h-4 w-4 mr-2" />
+            {saving ? '保存中...' : '保存设置'}
+          </Button>
+        </div>
+      </form>
+
+      {/* 文件选择对话框 */}
+      <Dialog open={fileDialogOpen} onOpenChange={setFileDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>选择背景图片</DialogTitle>
+            <DialogDescription>
+              从已上传的图片中选择一张作为背景
+            </DialogDescription>
+          </DialogHeader>
+          
+          {loadingFiles ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <span className="ml-2">加载文件列表...</span>
+            </div>
+          ) : files.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {files.map((file) => (
+                <div
+                  key={file.id}
+                  className="border rounded-lg p-2 hover:bg-muted cursor-pointer transition-colors"
+                  onClick={() => handleSelectFile(file)}
+                >
+                  <img
+                    src={`/api/files/${file.id}/preview`}
+                    alt={file.filename}
+                    className="w-full h-24 object-cover rounded mb-2"
+                  />
+                  <p className="text-sm font-medium truncate">{file.filename}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {(file.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+              <p className="text-muted-foreground">暂无图片文件</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

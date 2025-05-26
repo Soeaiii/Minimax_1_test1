@@ -4,6 +4,8 @@ import { existsSync } from 'fs';
 import path from 'path';
 import { prisma } from '@/lib/prisma';
 
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -12,6 +14,14 @@ export async function POST(request: NextRequest) {
     if (!file) {
       return NextResponse.json(
         { error: '没有选择文件' },
+        { status: 400 }
+      );
+    }
+
+    // 验证文件大小
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: `文件大小超过限制（最大50MB）` },
         { status: 400 }
       );
     }
@@ -54,6 +64,7 @@ export async function POST(request: NextRequest) {
         size: savedFile.size,
         createdAt: savedFile.createdAt,
       },
+      message: '文件上传成功',
       programs: [],
       competitions: [],
     });

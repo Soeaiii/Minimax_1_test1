@@ -12,16 +12,13 @@ export async function GET(
   try {
     // 修复：在 Next.js 15 中 params 需要被 await
     const { id } = await params;
-    console.log('开始处理获取比赛详情请求 - ID:', id);
     
     // 修复：优化会话获取
     // @ts-ignore 忽略NextAuth类型兼容性问题
     const session = await getServerSession(authOptions);
-    console.log('获取比赛详情 - 会话状态:', session ? '已登录' : '未登录');
     
     // 检查ID是否有效的ObjectId格式
     if (!/^[0-9a-fA-F]{24}$/.test(id)) {
-      console.log('获取比赛详情 - 无效的ID格式:', id);
       return NextResponse.json(
         { error: '无效的比赛ID格式' },
         { status: 400 }
@@ -79,8 +76,6 @@ export async function GET(
         },
       });
       
-      console.log('获取比赛详情 - 查询结果:', competition ? '成功' : '失败，未找到比赛');
-      
       if (!competition) {
         return NextResponse.json(
           { error: '比赛不存在' },
@@ -92,7 +87,6 @@ export async function GET(
       if (!session) {
         // 对于公开比赛，允许未登录用户查看
         if (competition.status === 'ACTIVE' || competition.status === 'FINISHED') {
-          console.log('允许未登录用户查看公开比赛');
           return NextResponse.json(competition);
         } else {
           return NextResponse.json(
@@ -110,12 +104,6 @@ export async function GET(
         ['ACTIVE', 'FINISHED'].includes(competition.status);
       
       if (!hasPermission) {
-        console.log('获取比赛详情 - 权限不足:', {
-          userRole: session.user.role,
-          userId: session.user.id,
-          organizerId: competition.organizerId,
-          competitionStatus: competition.status
-        });
         return NextResponse.json(
           { error: '您没有权限查看此比赛' },
           { status: 403 }
@@ -174,11 +162,6 @@ export async function PUT(
     const { id } = await params; // 修复：await params
     const body = await request.json();
     
-    console.log('接收到的更新比赛请求:', { 
-      id, 
-      body: { ...body, scoringCriteria: body.scoringCriteria?.length || 0 } 
-    });
-    
     // 获取当前比赛
     const currentCompetition = await prisma.competition.findUnique({
       where: { id },
@@ -203,12 +186,6 @@ export async function PUT(
     }
     
     try {
-      console.log('更新比赛基本信息:', {
-        id,
-        name: body.name,
-        status: body.status,
-        rankingUpdateMode: body.rankingUpdateMode
-      });
       
       // 1. 更新比赛基本信息
       const updated = await prisma.competition.update({
@@ -226,7 +203,6 @@ export async function PUT(
       
       // 2. 如果提供了评分标准，更新评分标准
       if (body.scoringCriteria && Array.isArray(body.scoringCriteria)) {
-        console.log('更新评分标准:', { count: body.scoringCriteria.length });
         
         try {
           // 删除现有评分标准
@@ -296,8 +272,6 @@ export async function PUT(
           scoringCriteria: true,
         },
       });
-      
-      console.log('比赛更新成功:', { id, name: updatedCompetition?.name });
       
       return NextResponse.json(updatedCompetition);
     } catch (dbError: any) {

@@ -67,7 +67,7 @@ export default function JudgesPage() {
         throw new Error('获取评委列表失败');
       }
       const data = await response.json();
-      setJudges(data);
+      setJudges(data.users || []);
     } catch (error) {
       setError(error instanceof Error ? error.message : '获取评委列表失败');
     } finally {

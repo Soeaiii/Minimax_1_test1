@@ -70,7 +70,7 @@ export function CompetitionList() {
       }
       
       const data = await response.json();
-      setCompetitions(data);
+      setCompetitions(data.competitions || data);
       setError(null);
     } catch (err) {
       console.error('Error fetching competitions:', err);

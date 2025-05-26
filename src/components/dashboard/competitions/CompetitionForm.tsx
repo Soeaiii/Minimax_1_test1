@@ -109,7 +109,7 @@ export function CompetitionForm({ initialData, isEditMode = false }: Competition
         }
         
         const data = await response.json();
-        setOrganizers(data);
+        setOrganizers(data.users || []);
         setOrganizerError(null);
       } catch (err) {
         console.error('Error fetching organizers:', err);

@@ -11,7 +11,7 @@ async function main() {
   console.log('跳过数据清理步骤，直接创建示例数据...')
 
   // 创建用户
-  const hashedPassword = await bcrypt.hash('123456', 12)
+  const hashedPassword = await bcrypt.hash('system1123', 12)
   
   const admin = await prisma.user.create({
     data: {

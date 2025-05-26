@@ -5,7 +5,8 @@ import { useParams } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Star, Users, Trophy, Crown } from 'lucide-react';
+import { Users, Trophy, Crown } from 'lucide-react';
+import { useScoreStream } from '@/hooks/useScoreStream';
 
 interface Judge {
   id: string;
@@ -63,6 +64,16 @@ interface DisplaySettings {
   judgeScoreColor?: string;
   averageScoreColor?: string;
   programInfoColor?: string;
+  judgeCardWidth?: number;
+  judgeCardPadding?: number;
+  judgeCardGap?: number;
+  judgeAvatarSize?: number;
+  judgeNameFontSize?: number;
+  judgeScoreFontSize?: number;
+  showBackgroundOverlay?: boolean;
+  overlayColor?: string;
+  overlayOpacity?: number;
+  selectedJudgeIds?: string[];
   backgroundImage?: {
     id: string;
     filename: string;
@@ -84,10 +95,25 @@ export default function DisplayPage() {
   const competitionId = params.competitionId as string;
 
   const [displayData, setDisplayData] = useState<DisplayData | null>(null);
+  const [backgroundImageUrl, setBackgroundImageUrl] = useState<string>('');
+  const [backgroundLoading, setBackgroundLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline'>('online');
+
+  // 使用实时评分流
+  const {
+    data: scoreStreamData,
+  } = useScoreStream(competitionId, undefined, {
+    enabled: true,
+    onError: (error) => {
+      console.error('实时评分连接错误:', error);
+    },
+    onReconnect: () => {
+      console.log('正在重新连接实时评分...');
+    },
+  });
 
   // 监听网络状态
   useEffect(() => {
@@ -153,9 +179,38 @@ export default function DisplayPage() {
     }
   };
 
+  // 初始加载数据
   useEffect(() => {
     fetchDisplayData();
   }, [competitionId]);
+
+  // 监听背景图片变化，只在背景图片ID变化时更新背景URL
+  useEffect(() => {
+    if (displayData?.settings.backgroundImage?.id) {
+      const newBackgroundUrl = `/api/files/${displayData.settings.backgroundImage.id}/preview`;
+      if (backgroundImageUrl !== newBackgroundUrl) {
+        console.log('背景图片发生变化，预加载新背景:', newBackgroundUrl);
+        setBackgroundLoading(true);
+        
+        // 预加载图片
+        const img = new Image();
+        img.onload = () => {
+          console.log('背景图片加载完成:', newBackgroundUrl);
+          setBackgroundImageUrl(newBackgroundUrl);
+          setBackgroundLoading(false);
+        };
+        img.onerror = () => {
+          console.error('背景图片加载失败:', newBackgroundUrl);
+          setBackgroundLoading(false);
+        };
+        img.src = newBackgroundUrl;
+      }
+    } else if (backgroundImageUrl) {
+      console.log('移除背景图片');
+      setBackgroundImageUrl('');
+      setBackgroundLoading(false);
+    }
+  }, [displayData?.settings.backgroundImage?.id, backgroundImageUrl]);
 
   // 自动重试机制
   useEffect(() => {
@@ -169,11 +224,14 @@ export default function DisplayPage() {
     }
   }, [error, retryCount]);
 
-  // 自动刷新
+
+
+  // 自动刷新 - 只刷新数据，不重新加载背景图片
   useEffect(() => {
     if (!displayData?.settings.autoRefresh) return;
 
     const interval = setInterval(() => {
+      console.log('自动刷新数据（背景图片不会重新加载）');
       fetchDisplayData();
     }, (displayData.settings.refreshInterval || 5) * 1000);
 
@@ -277,8 +335,9 @@ export default function DisplayPage() {
 
   const { settings, competition, currentProgram, judgeScores } = displayData;
   
-  const backgroundStyle = settings.backgroundImage
-    ? { backgroundImage: `url(${settings.backgroundImage.path})` }
+  // 使用独立的背景图片URL状态，避免重复加载
+  const backgroundStyle = backgroundImageUrl
+    ? { backgroundImage: `url(${backgroundImageUrl})` }
     : {};
 
   return (
@@ -292,8 +351,14 @@ export default function DisplayPage() {
       }}
     >
       {/* 背景遮罩 */}
-      {settings.backgroundImage && (
-        <div className="absolute inset-0 bg-black/40"></div>
+      {backgroundImageUrl && settings.showBackgroundOverlay && (
+        <div 
+          className="absolute inset-0"
+          style={{
+            backgroundColor: settings.overlayColor || '#000000',
+            opacity: settings.overlayOpacity || 0.4
+          }}
+        ></div>
       )}
 
       <div className="relative z-10 p-8">
@@ -316,7 +381,7 @@ export default function DisplayPage() {
         </div>
 
         {/* 当前节目信息 */}
-        {currentProgram && settings.showProgramInfo && (
+        {(scoreStreamData || currentProgram) && settings.showProgramInfo && (
           <div className="mb-12">
             <Card className="bg-white/10 backdrop-blur-md border-white/20">
               <CardHeader className="text-center">
@@ -329,19 +394,19 @@ export default function DisplayPage() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-center space-x-4">
                     <Badge variant="outline" className="text-xl px-4 py-2 bg-white/20 text-white border-white/30">
-                      第 {currentProgram.order} 号
+                      第 {scoreStreamData?.programOrder || currentProgram?.order} 号
                     </Badge>
                     <h2 className="text-4xl font-bold text-white">
-                      {currentProgram.name}
+                      {scoreStreamData?.programName || currentProgram?.name}
                     </h2>
                   </div>
                   
-                  {settings.showParticipants && currentProgram.participants.length > 0 && (
+                  {settings.showParticipants && (scoreStreamData?.participants || currentProgram?.participants || []).length > 0 && (
                     <div className="flex items-center justify-center space-x-2">
                       <Users className="h-6 w-6 text-white/80" />
                       <span className="text-xl text-white/90">参赛者：</span>
                       <div className="flex flex-wrap gap-2">
-                        {currentProgram.participants.map((participant) => (
+                        {(scoreStreamData?.participants || currentProgram?.participants || []).map((participant) => (
                           <Badge
                             key={participant.id}
                             variant="secondary"
@@ -355,7 +420,7 @@ export default function DisplayPage() {
                     </div>
                   )}
                   
-                  {currentProgram.description && (
+                  {currentProgram?.description && (
                     <p className="text-xl text-white/80">{currentProgram.description}</p>
                   )}
                 </div>
@@ -365,40 +430,68 @@ export default function DisplayPage() {
         )}
 
         {/* 裁判评分卡片 */}
-        {settings.showJudgeScores && judgeScores.length > 0 && (
+        {settings.showJudgeScores && (scoreStreamData?.judgeScores || judgeScores).length > 0 && (
           <div className="mb-8">
+
             {/* 评委卡片 - 水平排列 */}
             <div className="flex justify-center mb-6">
-              <div className="flex flex-wrap justify-center gap-10 max-w-7xl">
-                {judgeScores.map((judgeScore) => (
+              <div 
+                className="flex flex-wrap justify-center max-w-7xl"
+                style={{ gap: `${settings.judgeCardGap || 40}px` }}
+              >
+                {(scoreStreamData?.judgeScores || judgeScores).map((judgeScore) => (
                   <div
                     key={judgeScore.judge.id}
-                    className="bg-white/90 backdrop-blur-md rounded-lg p-8 text-center w-72 shadow-lg"
+                    className="bg-white/90 backdrop-blur-md rounded-lg text-center shadow-lg"
+                    style={{
+                      width: `${settings.judgeCardWidth || 288}px`,
+                      padding: `${settings.judgeCardPadding || 32}px`,
+                    }}
                   >
                     <div className="space-y-6">
-                      <Avatar className="w-44 h-44 mx-auto border-4 border-white">
+                      <Avatar 
+                        className="mx-auto border-4 border-white"
+                        style={{
+                          width: `${settings.judgeAvatarSize || 176}px`,
+                          height: `${settings.judgeAvatarSize || 176}px`,
+                        }}
+                      >
                         <AvatarImage
                           src={judgeScore.judge.avatar ? (
-                            judgeScore.judge.avatar.startsWith('/uploads/') 
-                              ? judgeScore.judge.avatar 
-                              : `/uploads/${judgeScore.judge.avatar}`
+                            // 检查是否是MongoDB ObjectId (24位字符)
+                            judgeScore.judge.avatar.length === 24
+                              ? `/api/files/${judgeScore.judge.avatar}/preview`
+                              : judgeScore.judge.avatar.startsWith('/api/files/')
+                                ? judgeScore.judge.avatar 
+                                : judgeScore.judge.avatar.startsWith('/uploads/')
+                                  ? `/api/files/preview?path=${encodeURIComponent(judgeScore.judge.avatar)}`
+                                  : `/uploads/${judgeScore.judge.avatar}`
                           ) : undefined}
                           alt={judgeScore.judge.name}
                         />
-                        <AvatarFallback className="text-3xl font-bold bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                        <AvatarFallback 
+                          className="font-bold bg-gradient-to-br from-blue-500 to-purple-600 text-white"
+                          style={{ fontSize: `${Math.max((settings.judgeAvatarSize || 176) * 0.2, 16)}px` }}
+                        >
                           {judgeScore.judge.name.charAt(0)}
                         </AvatarFallback>
                       </Avatar>
                       <div>
                         <p 
-                          className="text-xl font-medium truncate"
-                          style={{ color: settings.judgeNameColor || '#1f2937' }}
+                          className="font-medium truncate"
+                          style={{ 
+                            color: settings.judgeNameColor || '#1f2937',
+                            fontSize: `${settings.judgeNameFontSize || 20}px`,
+                          }}
                         >
                           {judgeScore.judge.name}
                         </p>
                         <p 
-                          className="text-4xl font-bold"
-                          style={{ color: settings.judgeScoreColor || '#1f2937' }}
+                          className="font-bold"
+                          style={{ 
+                            color: settings.judgeScoreColor || '#1f2937',
+                            fontSize: `${settings.judgeScoreFontSize || 36}px`,
+                          }}
                         >
                           {judgeScore.totalScore.toFixed(2)}
                         </p>
@@ -414,7 +507,7 @@ export default function DisplayPage() {
               <div className="bg-white/20 backdrop-blur-md rounded-lg p-6 max-w-4xl w-full ml-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* 选手信息 */}
-                  {currentProgram && (
+                  {(scoreStreamData || currentProgram) && (
                     <div className="space-y-3">
                       <div className="flex items-center space-x-3">
                         <span 
@@ -427,10 +520,10 @@ export default function DisplayPage() {
                           className="text-2xl font-bold"
                           style={{ color: settings.programInfoColor || '#ffffff' }}
                         >
-                          {currentProgram.order}
+                          {scoreStreamData?.programOrder || currentProgram?.order}
                         </span>
                       </div>
-                      {currentProgram.participants.length > 0 && (
+                      {(scoreStreamData?.participants || currentProgram?.participants || []).length > 0 && (
                         <div className="flex items-center space-x-3">
                           <span 
                             className="font-medium"
@@ -442,7 +535,7 @@ export default function DisplayPage() {
                             className="text-xl font-bold"
                             style={{ color: settings.programInfoColor || '#ffffff' }}
                           >
-                            {currentProgram.participants.map(p => p.name).join('、')}
+                            {(scoreStreamData?.participants || currentProgram?.participants || []).map(p => p.name).join('、')}
                           </span>
                         </div>
                       )}
@@ -457,7 +550,7 @@ export default function DisplayPage() {
                           className="text-lg font-medium"
                           style={{ color: settings.programInfoColor || '#ffffff' }}
                         >
-                          {currentProgram.name}
+                          {scoreStreamData?.programName || currentProgram?.name}
                         </span>
                       </div>
                     </div>
@@ -472,15 +565,36 @@ export default function DisplayPage() {
                       >
                         平均分：
                       </p>
-                      <span 
-                        className="text-6xl font-bold"
-                        style={{ color: settings.averageScoreColor || '#ffffff' }}
-                      >
-                        {judgeScores.length > 0 
-                          ? (judgeScores.reduce((sum, js) => sum + js.totalScore, 0) / judgeScores.length).toFixed(2)
-                          : '0.00'
-                        }
-                      </span>
+                      <div className="relative">
+                        {/* 显示平均分或等待状态 */}
+                        {scoreStreamData?.allJudgesScored || (!scoreStreamData && judgeScores.length > 0) ? (
+                          <span 
+                            className="text-6xl font-bold transition-all duration-500"
+                            style={{ color: settings.averageScoreColor || '#ffffff' }}
+                          >
+                            {scoreStreamData?.averageScore?.toFixed(2) || 
+                             (judgeScores.length > 0 
+                               ? (judgeScores.reduce((sum, js) => sum + js.totalScore, 0) / judgeScores.length).toFixed(2)
+                               : '0.00'
+                             )
+                            }
+                          </span>
+                        ) : (
+                          <div className="text-center">
+                            <span 
+                              className="text-4xl font-bold text-yellow-400"
+                              style={{ color: settings.averageScoreColor || '#ffffff' }}
+                            >
+                              等待中...
+                            </span>
+                            {scoreStreamData && (
+                              <p className="text-sm text-white/60 mt-2">
+                                已打分: {scoreStreamData.scoredJudges}/{scoreStreamData.totalJudges} 位评委
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -490,8 +604,8 @@ export default function DisplayPage() {
         )}
 
         {/* 无数据提示 */}
-        {(!currentProgram || !settings.showProgramInfo) && 
-         (!judgeScores.length || !settings.showJudgeScores) && (
+        {(!scoreStreamData && !currentProgram || !settings.showProgramInfo) && 
+         (!(scoreStreamData?.judgeScores || judgeScores).length || !settings.showJudgeScores) && (
           <div className="text-center">
             <div className="mb-8">
               <Crown className="h-24 w-24 mx-auto mb-4 text-white/60" />
@@ -501,14 +615,16 @@ export default function DisplayPage() {
           </div>
         )}
 
-        {/* 自动刷新指示器 */}
-        {settings.autoRefresh && (
-          <div className="fixed bottom-4 right-4">
-            <div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-2 text-white/80 text-sm">
-              每 {settings.refreshInterval} 秒自动刷新
+        {/* 状态指示器 */}
+        <div className="fixed bottom-4 right-4 flex gap-2">
+          {backgroundLoading && (
+            <div className="bg-blue-500/20 backdrop-blur-md rounded-full px-4 py-2 text-blue-300 text-sm flex items-center gap-2">
+              <div className="w-3 h-3 border border-blue-300 border-t-transparent rounded-full animate-spin"></div>
+              背景加载中
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
       </div>
     </div>
   );

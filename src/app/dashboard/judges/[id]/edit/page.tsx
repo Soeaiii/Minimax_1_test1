@@ -94,7 +94,13 @@ export default function EditJudgePage() {
       
       // 设置头像预览
       if (data.avatar) {
-        setAvatarPreview(data.avatar);
+        // 如果是文件ID，使用API路由预览
+        if (data.avatar.length === 24) { // MongoDB ObjectId长度
+          setAvatarPreview(`/api/files/${data.avatar}/preview`);
+        } else {
+          // 如果是路径，使用路径预览API
+          setAvatarPreview(`/api/files/preview?path=${encodeURIComponent(data.avatar)}`);
+        }
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : '获取评委信息失败');
@@ -106,6 +112,18 @@ export default function EditJudgePage() {
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // 验证文件大小 (50MB)
+      if (file.size > 50 * 1024 * 1024) {
+        alert('头像文件大小不能超过50MB');
+        return;
+      }
+
+      // 验证文件类型
+      if (!file.type.startsWith('image/')) {
+        alert('请选择图片文件');
+        return;
+      }
+
       setAvatarFile(file);
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -134,7 +152,7 @@ export default function EditJudgePage() {
         
         if (uploadResponse.ok) {
           const uploadResult = await uploadResponse.json();
-          avatarUrl = uploadResult.url || uploadResult.path;
+          avatarUrl = uploadResult.file.id; // 存储文件ID而不是路径
         }
       }
 
@@ -246,7 +264,7 @@ export default function EditJudgePage() {
                       onChange={handleAvatarChange}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      支持 JPG, PNG 格式，最大 5MB
+                      支持 JPG, PNG 格式，最大 50MB
                     </p>
                   </div>
                 </div>

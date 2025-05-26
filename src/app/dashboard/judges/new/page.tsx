@@ -65,6 +65,18 @@ export default function NewJudgePage() {
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // 验证文件大小 (50MB)
+      if (file.size > 50 * 1024 * 1024) {
+        alert('头像文件大小不能超过50MB');
+        return;
+      }
+
+      // 验证文件类型
+      if (!file.type.startsWith('image/')) {
+        alert('请选择图片文件');
+        return;
+      }
+
       setAvatarFile(file);
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -93,7 +105,7 @@ export default function NewJudgePage() {
         
         if (uploadResponse.ok) {
           const uploadResult = await uploadResponse.json();
-          avatarUrl = uploadResult.url || uploadResult.path;
+          avatarUrl = uploadResult.file.id; // 存储文件ID而不是路径
         }
       }
 
@@ -187,7 +199,7 @@ export default function NewJudgePage() {
                       onChange={handleAvatarChange}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      支持 JPG, PNG 格式，最大 5MB
+                      支持 JPG, PNG 格式，最大 50MB
                     </p>
                     {avatarPreview && (
                       <p className="text-xs text-green-600 mt-1">

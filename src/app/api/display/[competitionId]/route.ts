@@ -51,6 +51,13 @@ export async function GET(
           judgeScoreColor: '#1f2937',
           averageScoreColor: '#ffffff',
           programInfoColor: '#ffffff',
+          // 评委卡片大小默认值
+          judgeCardWidth: 288,
+          judgeCardPadding: 32,
+          judgeCardGap: 40,
+          judgeAvatarSize: 176,
+          judgeNameFontSize: 20,
+          judgeScoreFontSize: 36,
         },
         include: {
           competition: {
@@ -128,6 +135,19 @@ export async function PUT(
         judgeScoreColor: body.judgeScoreColor,
         averageScoreColor: body.averageScoreColor,
         programInfoColor: body.programInfoColor,
+        // 评委卡片大小设置
+        judgeCardWidth: body.judgeCardWidth,
+        judgeCardPadding: body.judgeCardPadding,
+        judgeCardGap: body.judgeCardGap,
+        judgeAvatarSize: body.judgeAvatarSize,
+        judgeNameFontSize: body.judgeNameFontSize,
+        judgeScoreFontSize: body.judgeScoreFontSize,
+        // 遮罩控制设置
+        showBackgroundOverlay: body.showBackgroundOverlay,
+        overlayColor: body.overlayColor,
+        overlayOpacity: body.overlayOpacity,
+        // 评委选择
+        selectedJudgeIds: body.selectedJudgeIds,
       },
       create: {
         competitionId: params.competitionId,
@@ -147,6 +167,19 @@ export async function PUT(
         judgeScoreColor: body.judgeScoreColor ?? '#1f2937',
         averageScoreColor: body.averageScoreColor ?? '#ffffff',
         programInfoColor: body.programInfoColor ?? '#ffffff',
+        // 评委卡片大小设置
+        judgeCardWidth: body.judgeCardWidth ?? 288,
+        judgeCardPadding: body.judgeCardPadding ?? 32,
+        judgeCardGap: body.judgeCardGap ?? 40,
+        judgeAvatarSize: body.judgeAvatarSize ?? 176,
+        judgeNameFontSize: body.judgeNameFontSize ?? 20,
+        judgeScoreFontSize: body.judgeScoreFontSize ?? 36,
+        // 遮罩控制设置
+        showBackgroundOverlay: body.showBackgroundOverlay ?? false,
+        overlayColor: body.overlayColor ?? '#000000',
+        overlayOpacity: body.overlayOpacity ?? 0.5,
+        // 评委选择
+        selectedJudgeIds: body.selectedJudgeIds ?? [],
       },
       include: {
         competition: {

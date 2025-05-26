@@ -107,7 +107,8 @@ export function ProgramListByCompetition({ searchQuery = '', statusFilter }: Pro
       if (!competitionsResponse.ok) {
         throw new Error('获取比赛列表失败');
       }
-      const competitionsData = await competitionsResponse.json();
+      const competitionsResponse_data = await competitionsResponse.json();
+      const competitionsData = competitionsResponse_data.competitions || competitionsResponse_data;
       
       // 获取节目列表
       const params = new URLSearchParams();

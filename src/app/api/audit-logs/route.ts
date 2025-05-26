@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { cleanupAuditLogs } from '@/lib/auditLogCleanup';
 
 // 获取审计日志
 export async function GET(request: Request) {
@@ -122,6 +125,59 @@ export async function GET(request: Request) {
     console.error('Error fetching audit logs:', error);
     return NextResponse.json(
       { error: '获取审计日志失败' },
+      { status: 500 }
+    );
+  }
+}
+
+// 手动清理审计日志
+export async function DELETE(request: Request) {
+  try {
+    // @ts-ignore 暂时忽略类型错误
+    const session = await getServerSession(authOptions);
+    
+    // 检查用户是否已登录且是管理员
+    if (!session || session.user.role !== 'ADMIN') {
+      return NextResponse.json(
+        { error: '未授权操作，只有管理员可以清理审计日志' },
+        { status: 403 }
+      );
+    }
+    
+    // 获取清理前的总数
+    const beforeCount = await prisma.auditLog.count();
+    
+    // 执行清理
+    await cleanupAuditLogs();
+    
+    // 获取清理后的总数
+    const afterCount = await prisma.auditLog.count();
+    const deletedCount = beforeCount - afterCount;
+    
+    // 记录清理操作的审计日志
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: 'CLEANUP_AUDIT_LOGS',
+        details: {
+          beforeCount,
+          afterCount,
+          deletedCount,
+        },
+      },
+    });
+    
+    return NextResponse.json({
+      success: true,
+      message: '审计日志清理完成',
+      beforeCount,
+      afterCount,
+      deletedCount,
+    });
+  } catch (error) {
+    console.error('手动清理审计日志失败:', error);
+    return NextResponse.json(
+      { error: '清理审计日志失败' },
       { status: 500 }
     );
   }

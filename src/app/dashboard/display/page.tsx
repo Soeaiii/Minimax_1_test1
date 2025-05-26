@@ -82,7 +82,7 @@ export default function DisplayManagePage() {
         throw new Error('获取比赛列表失败');
       }
       const data = await response.json();
-      setCompetitions(data);
+      setCompetitions(data.competitions || data);
       setError(null);
     } catch (error) {
       console.error('Error fetching competitions:', error);

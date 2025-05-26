@@ -27,6 +27,7 @@ import {
   Award,
 } from 'lucide-react';
 import Link from 'next/link';
+import { JudgeHeader } from '@/components/judge/JudgeHeader';
 
 interface ScoringCriteria {
   id: string;
@@ -182,10 +183,13 @@ export default function JudgeCompetitionDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">加载比赛信息...</p>
+      <div className="min-h-screen bg-background">
+        <JudgeHeader showBackButton title="比赛详情" />
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">加载比赛信息...</p>
+          </div>
         </div>
       </div>
     );
@@ -193,45 +197,33 @@ export default function JudgeCompetitionDetailPage() {
 
   if (error || !competition) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center">
-          <Button variant="ghost" size="sm" asChild className="mr-2">
-            <Link href="/judge/dashboard">
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              返回
-            </Link>
-          </Button>
+      <div className="min-h-screen bg-background">
+        <JudgeHeader showBackButton title="比赛详情" />
+        <div className="container mx-auto p-6 space-y-6">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="text-red-500 text-6xl mb-4">⚠️</div>
+                <h2 className="text-2xl font-bold text-red-600 mb-2">加载失败</h2>
+                <p className="text-muted-foreground mb-4">
+                  {error || '无法加载比赛信息，请稍后重试'}
+                </p>
+                <Button onClick={fetchCompetitionData}>重新加载</Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <div className="text-red-500 text-6xl mb-4">⚠️</div>
-              <h2 className="text-2xl font-bold text-red-600 mb-2">加载失败</h2>
-              <p className="text-muted-foreground mb-4">
-                {error || '无法加载比赛信息，请稍后重试'}
-              </p>
-              <Button onClick={fetchCompetitionData}>重新加载</Button>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* 头部导航 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <Button variant="ghost" size="sm" asChild className="mr-2">
-            <Link href="/judge/dashboard">
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              返回
-            </Link>
-          </Button>
-          <h1 className="text-3xl font-bold tracking-tight">{competition.name}</h1>
-        </div>
-        <div className="flex gap-2">
+    <div className="min-h-screen bg-background">
+      <JudgeHeader showBackButton title={competition.name} />
+      
+      <div className="container mx-auto p-6 space-y-6">
+        {/* 比赛操作按钮 */}
+        <div className="flex justify-end">
           <Button asChild>
             <Link href={`/judge/competitions/${competitionId}/scoring`}>
               <PlayCircle className="h-4 w-4 mr-2" />
@@ -239,195 +231,195 @@ export default function JudgeCompetitionDetailPage() {
             </Link>
           </Button>
         </div>
-      </div>
 
-      {/* 比赛基本信息 */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-start justify-between">
-            <div>
-              <CardTitle className="text-2xl">{competition.name}</CardTitle>
-              <CardDescription className="mt-2">
-                {competition.description || '暂无比赛描述'}
-              </CardDescription>
-            </div>
-            <Badge className={getStatusColor(competition.status)}>
-              {getStatusText(competition.status)}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="flex items-center space-x-2">
-              <Calendar className="h-5 w-5 text-muted-foreground" />
+        {/* 比赛基本信息 */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-medium">开始时间</p>
-                <p className="text-sm text-muted-foreground">
-                  {new Date(competition.startDate).toLocaleDateString('zh-CN')}
-                </p>
+                <CardTitle className="text-2xl">{competition.name}</CardTitle>
+                <CardDescription className="mt-2">
+                  {competition.description || '暂无比赛描述'}
+                </CardDescription>
               </div>
+              <Badge className={getStatusColor(competition.status)}>
+                {getStatusText(competition.status)}
+              </Badge>
             </div>
-            <div className="flex items-center space-x-2">
-              <Clock className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">结束时间</p>
-                <p className="text-sm text-muted-foreground">
-                  {new Date(competition.endDate).toLocaleDateString('zh-CN')}
-                </p>
-              </div>
-            </div>
-            {competition.venue && (
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="flex items-center space-x-2">
-                <MapPin className="h-5 w-5 text-muted-foreground" />
+                <Calendar className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <p className="text-sm font-medium">比赛地点</p>
-                  <p className="text-sm text-muted-foreground">{competition.venue}</p>
+                  <p className="text-sm font-medium">开始时间</p>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(competition.startDate).toLocaleDateString('zh-CN')}
+                  </p>
                 </div>
               </div>
-            )}
-            <div className="flex items-center space-x-2">
-              <Users className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">参赛节目</p>
-                <p className="text-sm text-muted-foreground">
-                  {competition.programs.length} 个节目
-                </p>
+              <div className="flex items-center space-x-2">
+                <Clock className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">结束时间</p>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(competition.endDate).toLocaleDateString('zh-CN')}
+                  </p>
+                </div>
+              </div>
+              {competition.venue && (
+                <div className="flex items-center space-x-2">
+                  <MapPin className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">比赛地点</p>
+                    <p className="text-sm text-muted-foreground">{competition.venue}</p>
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center space-x-2">
+                <Users className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">参赛节目</p>
+                  <p className="text-sm text-muted-foreground">
+                    {competition.programs.length} 个节目
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* 评分进度概览 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <BarChart3 className="h-5 w-5 mr-2" />
-            评分进度
-          </CardTitle>
-          <CardDescription>
-            您的整体评分进度：{programScores.filter(p => p.isCompleted).length} / {competition.programs.length} 个节目已完成
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>总进度</span>
-              <span>{calculateOverallProgress()}%</span>
-            </div>
-            <Progress value={calculateOverallProgress()} className="h-2" />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 评分标准 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Star className="h-5 w-5 mr-2" />
-            评分标准
-          </CardTitle>
-          <CardDescription>
-            本次比赛共有 {competition.scoringCriteria.length} 项评分标准
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {competition.scoringCriteria.map((criteria) => (
-              <div
-                key={criteria.id}
-                className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium">{criteria.name}</h4>
-                  <Badge variant="outline">{criteria.maxScore}分</Badge>
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  权重：{criteria.weight}%
-                </div>
+        {/* 评分进度概览 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <BarChart3 className="h-5 w-5 mr-2" />
+              评分进度
+            </CardTitle>
+            <CardDescription>
+              您的整体评分进度：{programScores.filter(p => p.isCompleted).length} / {competition.programs.length} 个节目已完成
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>总进度</span>
+                <span>{calculateOverallProgress()}%</span>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              <Progress value={calculateOverallProgress()} className="h-2" />
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* 参赛节目列表 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Trophy className="h-5 w-5 mr-2" />
-            参赛节目
-          </CardTitle>
-          <CardDescription>
-            共有 {competition.programs.length} 个参赛节目
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {competition.programs.map((program) => {
-              const scoreInfo = programScores.find(p => p.programId === program.id);
-              const progressPercentage = scoreInfo 
-                ? Math.round((scoreInfo.completedCriteria / scoreInfo.totalCriteria) * 100)
-                : 0;
-
-              return (
+        {/* 评分标准 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Star className="h-5 w-5 mr-2" />
+              评分标准
+            </CardTitle>
+            <CardDescription>
+              本次比赛共有 {competition.scoringCriteria.length} 项评分标准
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {competition.scoringCriteria.map((criteria) => (
                 <div
-                  key={program.id}
+                  key={criteria.id}
                   className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <Badge variant="outline">第{program.order}号</Badge>
-                        <h4 className="font-medium">{program.name}</h4>
-                        {scoreInfo?.isCompleted && (
-                          <Badge className="bg-green-100 text-green-800">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            已完成
-                          </Badge>
-                        )}
-                      </div>
-                      {program.description && (
-                        <p className="text-sm text-muted-foreground mb-2">
-                          {program.description}
-                        </p>
-                      )}
-                      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                        <Users className="h-4 w-4" />
-                        <span>
-                          参赛者：{program.participants.map(p => p.name).join('、')}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end space-y-2">
-                      <Button
-                        size="sm"
-                        asChild
-                        variant={scoreInfo?.isCompleted ? "outline" : "default"}
-                      >
-                        <Link href={`/judge/competitions/${competitionId}/scoring?program=${program.order - 1}`}>
-                          {scoreInfo?.isCompleted ? '查看评分' : '开始评分'}
-                        </Link>
-                      </Button>
-                    </div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium">{criteria.name}</h4>
+                    <Badge variant="outline">{criteria.maxScore}分</Badge>
                   </div>
-                  
-                  {/* 评分进度条 */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>评分进度</span>
-                      <span>
-                        {scoreInfo?.completedCriteria || 0} / {scoreInfo?.totalCriteria || 0} 项标准
-                      </span>
-                    </div>
-                    <Progress value={progressPercentage} className="h-1" />
+                  <div className="text-sm text-muted-foreground">
+                    权重：{criteria.weight}%
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 参赛节目列表 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Trophy className="h-5 w-5 mr-2" />
+              参赛节目
+            </CardTitle>
+            <CardDescription>
+              共有 {competition.programs.length} 个参赛节目
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {competition.programs.map((program) => {
+                const scoreInfo = programScores.find(p => p.programId === program.id);
+                const progressPercentage = scoreInfo 
+                  ? Math.round((scoreInfo.completedCriteria / scoreInfo.totalCriteria) * 100)
+                  : 0;
+
+                return (
+                  <div
+                    key={program.id}
+                    className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <Badge variant="outline">第{program.order}号</Badge>
+                          <h4 className="font-medium">{program.name}</h4>
+                          {scoreInfo?.isCompleted && (
+                            <Badge className="bg-green-100 text-green-800">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              已完成
+                            </Badge>
+                          )}
+                        </div>
+                        {program.description && (
+                          <p className="text-sm text-muted-foreground mb-2">
+                            {program.description}
+                          </p>
+                        )}
+                        <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                          <Users className="h-4 w-4" />
+                          <span>
+                            参赛者：{program.participants.map(p => p.name).join('、')}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end space-y-2">
+                        <Button
+                          size="sm"
+                          asChild
+                          variant={scoreInfo?.isCompleted ? "outline" : "default"}
+                        >
+                          <Link href={`/judge/competitions/${competitionId}/scoring?program=${program.order - 1}`}>
+                            {scoreInfo?.isCompleted ? '查看评分' : '开始评分'}
+                          </Link>
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* 评分进度条 */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>评分进度</span>
+                        <span>
+                          {scoreInfo?.completedCriteria || 0} / {scoreInfo?.totalCriteria || 0} 项标准
+                        </span>
+                      </div>
+                      <Progress value={progressPercentage} className="h-1" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 } 

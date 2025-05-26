@@ -4,8 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ListMusic, Trophy, Users, BarChart3, Download } from "lucide-react";
-import { Suspense } from "react";
+import { ListMusic, Trophy, Users, BarChart3, Download, Monitor, RefreshCw } from "lucide-react";
+import { Suspense, useState } from "react";
 import dynamic from 'next/dynamic';
 
 // 动态导入客户端组件
@@ -47,15 +47,60 @@ const ExportData = dynamic(
   }
 );
 
+const DisplayManagement = dynamic(
+  () => import("@/components/dashboard/competitions/DisplayManagement").then(mod => ({ default: mod.DisplayManagement })),
+  { 
+    ssr: false,
+    loading: () => (
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex h-32 items-center justify-center">
+            <div className="text-center">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-r-transparent mx-auto mb-2"></div>
+              <p className="text-sm text-muted-foreground">正在加载大屏幕管理...</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+);
+
 interface CompetitionTabsProps {
   competition: any;
   competitionId: string;
 }
 
 export function CompetitionTabs({ competition, competitionId }: CompetitionTabsProps) {
+  const [refreshingRankings, setRefreshingRankings] = useState(false);
+
+  const refreshRankings = async () => {
+    try {
+      setRefreshingRankings(true);
+      const response = await fetch(`/api/rankings/${competitionId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('刷新排名失败');
+      }
+
+      // 刷新页面以显示最新排名
+      window.location.reload();
+    } catch (error) {
+      console.error('刷新排名失败:', error);
+      alert('刷新排名失败，请稍后重试');
+    } finally {
+      setRefreshingRankings(false);
+    }
+  };
+
   return (
     <Tabs defaultValue="programs">
-      <TabsList className="grid w-full grid-cols-5">
+      <TabsList className="grid w-full grid-cols-6">
         <TabsTrigger value="programs" className="flex items-center gap-2">
           <ListMusic className="h-4 w-4" />
           <span className="hidden sm:inline-block">节目管理</span>
@@ -67,6 +112,10 @@ export function CompetitionTabs({ competition, competitionId }: CompetitionTabsP
         <TabsTrigger value="rankings" className="flex items-center gap-2">
           <Trophy className="h-4 w-4" />
           <span className="hidden sm:inline-block">排名结果</span>
+        </TabsTrigger>
+        <TabsTrigger value="display" className="flex items-center gap-2">
+          <Monitor className="h-4 w-4" />
+          <span className="hidden sm:inline-block">大屏幕管理</span>
         </TabsTrigger>
         <TabsTrigger value="statistics" className="flex items-center gap-2">
           <BarChart3 className="h-4 w-4" />
@@ -192,8 +241,14 @@ export function CompetitionTabs({ competition, competitionId }: CompetitionTabsP
               <CardTitle>排名结果</CardTitle>
               <CardDescription>查看该比赛的当前排名</CardDescription>
             </div>
-            <Button size="sm" variant="outline">
-              刷新排名
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={refreshRankings}
+              disabled={refreshingRankings}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshingRankings ? 'animate-spin' : ''}`} />
+              {refreshingRankings ? '刷新中...' : '刷新排名'}
             </Button>
           </CardHeader>
           <CardContent>
@@ -222,6 +277,23 @@ export function CompetitionTabs({ competition, competitionId }: CompetitionTabsP
             )}
           </CardContent>
         </Card>
+      </TabsContent>
+      
+      <TabsContent value="display" className="mt-6">
+        <Suspense fallback={
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex h-32 items-center justify-center">
+                <div className="text-center">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-r-transparent mx-auto mb-2"></div>
+                  <p className="text-sm text-muted-foreground">正在加载大屏幕管理...</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        }>
+          <DisplayManagement competitionId={competitionId} />
+        </Suspense>
       </TabsContent>
       
       <TabsContent value="statistics" className="mt-6">

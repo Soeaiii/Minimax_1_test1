@@ -53,7 +53,7 @@ export async function GET(request: Request) {
       },
     });
     
-    return NextResponse.json(competitions);
+    return NextResponse.json({ competitions });
   } catch (error) {
     console.error('Error fetching competitions:', error);
     return NextResponse.json(

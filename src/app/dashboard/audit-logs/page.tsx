@@ -24,7 +24,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  X
+  X,
+  Trash2
 } from "lucide-react";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
@@ -79,6 +80,7 @@ export default function AuditLogsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [users, setUsers] = useState<Array<{ id: string; name: string; email: string }>>([]);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
   
   // 获取审计日志数据
   const fetchLogs = async (page = 1) => {
@@ -171,6 +173,35 @@ export default function AuditLogsPage() {
       console.error('Error exporting logs:', error);
     }
   };
+
+  // 处理清理审计日志
+  const handleCleanup = async () => {
+    if (!confirm('确定要清理审计日志吗？这将删除超过200条的旧记录，此操作不可撤销。')) {
+      return;
+    }
+    
+    setCleanupLoading(true);
+    try {
+      const response = await fetch('/api/audit-logs', {
+        method: 'DELETE',
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        alert(`清理完成！删除了 ${result.deletedCount} 条旧记录，当前保留 ${result.afterCount} 条记录。`);
+        // 刷新数据
+        fetchLogs(1);
+      } else {
+        const error = await response.json();
+        alert(`清理失败：${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error cleaning up logs:', error);
+      alert('清理失败，请稍后重试');
+    } finally {
+      setCleanupLoading(false);
+    }
+  };
   
   // 获取操作类型的显示信息
   const getActionInfo = (action: string) => {
@@ -221,6 +252,19 @@ export default function AuditLogsPage() {
           <Button variant="outline" onClick={handleExport}>
             <Download className="mr-2 h-4 w-4" />
             导出日志
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={handleCleanup}
+            disabled={cleanupLoading}
+            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+          >
+            {cleanupLoading ? (
+              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="mr-2 h-4 w-4" />
+            )}
+            {cleanupLoading ? '清理中...' : '清理日志'}
           </Button>
           <Button variant="outline" onClick={() => fetchLogs(pagination.page)}>
             <RefreshCw className="mr-2 h-4 w-4" />

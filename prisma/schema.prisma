@@ -222,6 +222,19 @@ model DisplaySettings {
   judgeScoreColor     String?   @default("#1f2937") // 评委分数颜色
   averageScoreColor   String?   @default("#ffffff") // 平均分颜色
   programInfoColor    String?   @default("#ffffff") // 节目信息颜色
+  // 评委卡片大小设置
+  judgeCardWidth      Int?      @default(288) // 卡片宽度 (px)，默认 w-72 = 288px
+  judgeCardPadding    Int?      @default(32) // 卡片内边距 (px)，默认 p-8 = 32px
+  judgeCardGap        Int?      @default(40) // 卡片间距 (px)，默认 gap-10 = 40px
+  judgeAvatarSize     Int?      @default(176) // 头像大小 (px)，默认 w-44 h-44 = 176px
+  judgeNameFontSize   Int?      @default(20) // 姓名字体大小 (px)，默认 text-xl = 20px
+  judgeScoreFontSize  Int?      @default(36) // 分数字体大小 (px)，默认 text-4xl = 36px
+  // 背景遮罩控制
+  showBackgroundOverlay Boolean @default(true) // 是否显示背景遮罩
+  overlayColor        String?   @default("#000000") // 遮罩颜色，默认黑色
+  overlayOpacity      Float?    @default(0.4) // 遮罩透明度，0-1之间，默认0.4
+  // 评委选择
+  selectedJudgeIds    String[]  @db.ObjectId @default([]) // 选中的评委ID列表
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   

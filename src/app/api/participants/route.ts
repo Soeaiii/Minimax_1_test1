@@ -16,21 +16,52 @@ export async function GET(request: Request) {
     
     let where: any = {};
     
+    // 构建搜索条件
+    const searchConditions = [];
     if (search) {
-      where.OR = [
+      searchConditions.push(
         { name: { contains: search, mode: 'insensitive' } },
         { bio: { contains: search, mode: 'insensitive' } },
         { team: { contains: search, mode: 'insensitive' } },
-        { contact: { contains: search, mode: 'insensitive' } },
-      ];
+        { contact: { contains: search, mode: 'insensitive' } }
+      );
     }
     
+    // 构建team过滤条件
     if (team && team !== 'all') {
       if (team === 'individual') {
-        where.team = { in: [null, ''] };
+        // 对于individual，需要team为null或空字符串
+        const teamCondition = {
+          OR: [
+            { team: null },
+            { team: { equals: '' } }
+          ]
+        };
+        
+        if (searchConditions.length > 0) {
+          // 如果有搜索条件，需要同时满足搜索和team条件
+          where.AND = [
+            { OR: searchConditions },
+            teamCondition
+          ];
+        } else {
+          // 只有team条件
+          where = teamCondition;
+        }
       } else {
-        where.team = team;
+        // 对于具体的team名称
+        if (searchConditions.length > 0) {
+          where.AND = [
+            { OR: searchConditions },
+            { team: team }
+          ];
+        } else {
+          where.team = team;
+        }
       }
+    } else if (searchConditions.length > 0) {
+      // 只有搜索条件，没有team过滤
+      where.OR = searchConditions;
     }
     
     // 获取总数

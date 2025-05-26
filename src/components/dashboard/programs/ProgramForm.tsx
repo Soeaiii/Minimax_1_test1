@@ -81,7 +81,7 @@ export function ProgramForm({ initialData, isEditMode = false, competitionId }: 
           throw new Error('获取比赛列表失败');
         }
         const data = await response.json();
-        setCompetitions(data);
+        setCompetitions(data.competitions || data);
       } catch (error) {
         console.error('加载比赛失败:', error);
         toast.error('加载比赛列表失败');

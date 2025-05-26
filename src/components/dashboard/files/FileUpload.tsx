@@ -16,7 +16,7 @@ interface FileWithId extends File {
   id: string;
 }
 
-export function FileUpload({ onUpload, maxSize = 10 * 1024 * 1024, accept }: FileUploadProps) {
+export function FileUpload({ onUpload, maxSize = 50 * 1024 * 1024, accept }: FileUploadProps) {
   const [files, setFiles] = useState<FileWithId[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -27,10 +27,20 @@ export function FileUpload({ onUpload, maxSize = 10 * 1024 * 1024, accept }: Fil
     if (!fileList) return;
 
     const newFiles = Array.from(fileList)
-      .filter(file => file.size <= maxSize)
+      .filter(file => {
+        if (file.size > maxSize) {
+          console.warn(`文件 ${file.name} 大小超过限制（${formatFileSize(maxSize)}）`);
+          return false;
+        }
+        return true;
+      })
       .map(file => Object.assign(file, {
         id: Math.random().toString(36).substr(2, 9)
       }));
+
+    if (Array.from(fileList).length > newFiles.length) {
+      alert(`部分文件因超过大小限制（${formatFileSize(maxSize)}）而被忽略`);
+    }
 
     setFiles(prev => [...prev, ...newFiles]);
   };
