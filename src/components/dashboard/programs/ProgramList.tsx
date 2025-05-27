@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ListMusic } from "lucide-react";
 import Link from "next/link";
 import { ProgramStatus } from "@/lib/types";
+import { DeleteProgramButton } from "./delete-program-button";
 
 // 定义节目对象类型
 interface Program {
@@ -18,8 +19,10 @@ interface Program {
   competition: {
     id: string;
     name: string;
+    status: string;
   };
   participants: any[];
+  scores?: any[];
 }
 
 // 获取节目状态显示标签样式
@@ -231,6 +234,14 @@ export function ProgramList({ searchQuery = '', competitionId, status }: Program
                     重置
                   </Button>
                 )}
+                
+                <DeleteProgramButton
+                  programId={program.id}
+                  programName={program.name}
+                  hasScores={(program.scores?.length || 0) > 0}
+                  competitionStatus={program.competition.status}
+                  onSuccess={fetchPrograms}
+                />
               </div>
             </div>
           </CardContent>

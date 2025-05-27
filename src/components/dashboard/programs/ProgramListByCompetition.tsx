@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ListMusic, ChevronDown, ChevronRight, Calendar, Users } from "lucide-react";
 import Link from "next/link";
 import { ProgramStatus } from "@/lib/types";
+import { DeleteProgramButton } from "./delete-program-button";
 
 // 定义节目对象类型
 interface Program {
@@ -17,6 +18,11 @@ interface Program {
   currentStatus: ProgramStatus;
   competitionId: string;
   participants: any[];
+  scores?: any[];
+  competition?: {
+    id: string;
+    status: string;
+  };
 }
 
 // 定义比赛对象类型
@@ -385,6 +391,14 @@ export function ProgramListByCompetition({ searchQuery = '', statusFilter }: Pro
                                   重置
                                 </Button>
                               )}
+                              
+                              <DeleteProgramButton
+                                programId={program.id}
+                                programName={program.name}
+                                hasScores={false}
+                                competitionStatus={competition.status}
+                                onSuccess={fetchData}
+                              />
                             </div>
                           </CardContent>
                         </Card>
