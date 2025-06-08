@@ -178,6 +178,11 @@ export async function GET(
         if (isClosed) return;
         
         try {
+          // 验证比赛ID
+          if (!competitionId) {
+            throw new Error('比赛ID不能为空');
+          }
+          
           // 获取显示设置中的评委选择
           const displaySettings = await prisma.displaySettings.findUnique({
             where: { competitionId },
@@ -186,15 +191,39 @@ export async function GET(
           
           const selectedJudgeIds = displaySettings?.selectedJudgeIds || [];
           const scoreData = await getCurrentProgramScores(competitionId, selectedJudgeIds);
-          const data = JSON.stringify(scoreData);
+          
+          // 确保数据格式正确
+          const responseData = scoreData || {
+            programId: null,
+            programName: null,
+            programOrder: null,
+            participants: [],
+            judgeScores: [],
+            averageScore: null,
+            allJudgesScored: false,
+            totalJudges: 0,
+            scoredJudges: 0,
+            timestamp: new Date().toISOString(),
+          };
+          
+          const data = JSON.stringify(responseData);
           
           if (!isClosed) {
             controller.enqueue(encoder.encode(`data: ${data}\n\n`));
           }
         } catch (error) {
           console.error('发送数据失败:', error);
+          const errorMessage = error instanceof Error ? error.message : '获取数据失败';
+          
           if (!isClosed) {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: '获取数据失败' })}\n\n`));
+            try {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+                error: errorMessage,
+                timestamp: new Date().toISOString()
+              })}\n\n`));
+            } catch (encodeError) {
+              console.error('编码错误数据失败:', encodeError);
+            }
           }
         }
       };

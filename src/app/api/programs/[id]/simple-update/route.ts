@@ -3,8 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 
-// 最简单的状态更新API
-export async function PATCH(
+// 节目状态更新API - 支持PATCH和PUT方法
+async function updateProgramStatus(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -30,23 +30,51 @@ export async function PATCH(
       );
     }
 
-    // 使用最基本的 Prisma 操作，不包含任何关联
+    // 验证状态值
+    const validStatuses = ['WAITING', 'PERFORMING', 'COMPLETED'];
+    if (!validStatuses.includes(currentStatus)) {
+      return NextResponse.json(
+        { error: '无效的状态值。允许的状态: WAITING, PERFORMING, COMPLETED' },
+        { status: 400 }
+      );
+    }
+
+    // 检查节目是否存在
+    const existingProgram = await prisma.program.findUnique({
+      where: { id: id },
+      select: { id: true, name: true, currentStatus: true }
+    });
+
+    if (!existingProgram) {
+      return NextResponse.json(
+        { error: '节目不存在' },
+        { status: 404 }
+      );
+    }
+
+    // 更新节目状态
     const result = await prisma.program.update({
       where: { id: id },
-      data: { currentStatus: currentStatus },
+      data: { 
+        currentStatus: currentStatus,
+        updatedAt: new Date()
+      },
+      select: {
+        id: true,
+        name: true,
+        currentStatus: true,
+        updatedAt: true
+      }
     });
 
     return NextResponse.json({
       success: true,
-      message: '状态更新成功',
-      program: {
-        id: result.id,
-        currentStatus: result.currentStatus,
-      },
+      message: `节目 "${existingProgram.name}" 状态已更新为 "${currentStatus}"`,
+      program: result,
     });
     
   } catch (error) {
-    console.error('Simple update error:', error);
+    console.error('Program status update error:', error);
     return NextResponse.json(
       { 
         error: '更新失败', 
@@ -55,4 +83,20 @@ export async function PATCH(
       { status: 500 }
     );
   }
+}
+
+// 支持PATCH方法
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return updateProgramStatus(request, { params });
+}
+
+// 支持PUT方法
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return updateProgramStatus(request, { params });
 } 

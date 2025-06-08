@@ -44,8 +44,16 @@ import {
   ExternalLink,
   FolderOpen,
   Grid,
+  Users,
 } from 'lucide-react';
 import Link from 'next/link';
+
+interface Judge {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+}
 
 interface Program {
   id: string;
@@ -85,6 +93,7 @@ interface DisplaySettings {
   judgeScoreColor?: string;
   averageScoreColor?: string;
   programInfoColor?: string;
+  selectedJudgeIds?: string[];
   // 评委卡片大小设置
   judgeCardWidth?: number;
   judgeCardPadding?: number;
@@ -128,6 +137,12 @@ type FormValues = {
   judgeScoreColor: string;
   averageScoreColor: string;
   programInfoColor: string;
+  showJudgeScores: boolean;
+  showParticipants: boolean;
+  showProgramInfo: boolean;
+  autoRefresh: boolean;
+  refreshInterval: number;
+  selectedJudgeIds: string[];
   // 评委卡片大小设置
   judgeCardWidth: number;
   judgeCardPadding: number;
@@ -155,6 +170,8 @@ export default function DisplayManagePage() {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [fileDialogOpen, setFileDialogOpen] = useState(false);
   const [loadingFiles, setLoadingFiles] = useState(false);
+  const [judges, setJudges] = useState<Judge[]>([]);
+  const [loadingJudges, setLoadingJudges] = useState(false);
 
   const form = useForm<FormValues>({
     defaultValues: {
@@ -168,6 +185,12 @@ export default function DisplayManagePage() {
       judgeScoreColor: '#1f2937',
       averageScoreColor: '#ffffff',
       programInfoColor: '#ffffff',
+      showJudgeScores: true,
+      showParticipants: true,
+      showProgramInfo: true,
+      autoRefresh: true,
+      refreshInterval: 5,
+      selectedJudgeIds: [],
       judgeCardWidth: 288,
       judgeCardPadding: 32,
       judgeCardGap: 40,
@@ -199,9 +222,11 @@ export default function DisplayManagePage() {
     try {
       setLoading(true);
       const response = await fetch(`/api/display/${competitionId}/data`);
+      
       if (!response.ok) {
         throw new Error('获取显示数据失败');
       }
+      
       const data = await response.json();
       setDisplayData(data);
 
@@ -210,13 +235,19 @@ export default function DisplayManagePage() {
         backgroundImageId: data.settings.backgroundImageId || '',
         title: data.settings.title || '',
         subtitle: data.settings.subtitle || '',
-        theme: data.settings.theme,
+        theme: data.settings.theme || 'MODERN',
         titleColor: data.settings.titleColor || '#ffffff',
         subtitleColor: data.settings.subtitleColor || '#ffffff',
         judgeNameColor: data.settings.judgeNameColor || '#1f2937',
         judgeScoreColor: data.settings.judgeScoreColor || '#1f2937',
         averageScoreColor: data.settings.averageScoreColor || '#ffffff',
         programInfoColor: data.settings.programInfoColor || '#ffffff',
+        showJudgeScores: data.settings.showJudgeScores ?? true,
+        showParticipants: data.settings.showParticipants ?? true,
+        showProgramInfo: data.settings.showProgramInfo ?? true,
+        autoRefresh: data.settings.autoRefresh ?? true,
+        refreshInterval: data.settings.refreshInterval || 5,
+        selectedJudgeIds: data.settings.selectedJudgeIds || [],
         judgeCardWidth: data.settings.judgeCardWidth || 288,
         judgeCardPadding: data.settings.judgeCardPadding || 32,
         judgeCardGap: data.settings.judgeCardGap || 40,
@@ -234,6 +265,23 @@ export default function DisplayManagePage() {
       setError(error instanceof Error ? error.message : '加载失败');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchJudges = async () => {
+    try {
+      setLoadingJudges(true);
+      const response = await fetch('/api/users?role=JUDGE');
+      if (!response.ok) {
+        throw new Error('获取评委列表失败');
+      }
+      const data = await response.json();
+      setJudges(data.users || []);
+    } catch (error) {
+      console.error('Error fetching judges:', error);
+      setError(error instanceof Error ? error.message : '获取评委列表失败');
+    } finally {
+      setLoadingJudges(false);
     }
   };
 
@@ -258,6 +306,7 @@ export default function DisplayManagePage() {
 
   useEffect(() => {
     fetchDisplayData();
+    fetchJudges();
   }, [competitionId]);
 
   const onSubmit = async (data: FormValues) => {
@@ -625,6 +674,160 @@ export default function DisplayManagePage() {
           </CardContent>
         </Card>
 
+        {/* 评委管理 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Users className="h-5 w-5 mr-2" />
+              评委管理
+            </CardTitle>
+            <CardDescription>
+              选择在大屏幕上显示的评委和其他显示选项
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* 显示开关 */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="showJudgeScores">显示裁判评分</Label>
+                <Switch
+                  id="showJudgeScores"
+                  checked={form.watch('showJudgeScores')}
+                  onCheckedChange={(checked) => form.setValue('showJudgeScores', checked)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="showParticipants">显示参赛者信息</Label>
+                <Switch
+                  id="showParticipants"
+                  checked={form.watch('showParticipants')}
+                  onCheckedChange={(checked) => form.setValue('showParticipants', checked)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="showProgramInfo">显示节目信息</Label>
+                <Switch
+                  id="showProgramInfo"
+                  checked={form.watch('showProgramInfo')}
+                  onCheckedChange={(checked) => form.setValue('showProgramInfo', checked)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="autoRefresh">自动刷新</Label>
+                <Switch
+                  id="autoRefresh"
+                  checked={form.watch('autoRefresh')}
+                  onCheckedChange={(checked) => form.setValue('autoRefresh', checked)}
+                />
+              </div>
+            </div>
+
+            {/* 刷新间隔 */}
+            {form.watch('autoRefresh') && (
+              <div className="space-y-2">
+                <Label htmlFor="refreshInterval">刷新间隔（秒）</Label>
+                <Input
+                  id="refreshInterval"
+                  type="number"
+                  min="1"
+                  max="60"
+                  {...form.register('refreshInterval', { valueAsNumber: true })}
+                />
+              </div>
+            )}
+
+            {/* 评委选择 */}
+            {form.watch('showJudgeScores') && (
+              <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">评委选择</Label>
+                  <Badge variant="secondary">
+                    已选择 {form.watch('selectedJudgeIds').length}/{judges.length}
+                  </Badge>
+                </div>
+                
+                {loadingJudges ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                    <span className="ml-2 text-sm">加载评委列表...</span>
+                  </div>
+                ) : judges.length > 0 ? (
+                  <>
+                    {/* 快速选择按钮 */}
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => form.setValue('selectedJudgeIds', judges.map(j => j.id))}
+                        disabled={form.watch('selectedJudgeIds').length === judges.length}
+                      >
+                        全选
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => form.setValue('selectedJudgeIds', [])}
+                        disabled={form.watch('selectedJudgeIds').length === 0}
+                      >
+                        全不选
+                      </Button>
+                    </div>
+
+                    {/* 评委列表 */}
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {judges.map((judge) => (
+                        <div key={judge.id} className="flex items-center space-x-3 p-2 rounded hover:bg-muted/50">
+                          <input
+                            type="checkbox"
+                            id={`judge-${judge.id}`}
+                            checked={form.watch('selectedJudgeIds').includes(judge.id)}
+                            onChange={(e) => {
+                              const currentIds = form.watch('selectedJudgeIds');
+                              if (e.target.checked) {
+                                form.setValue('selectedJudgeIds', [...currentIds, judge.id]);
+                              } else {
+                                form.setValue('selectedJudgeIds', currentIds.filter(id => id !== judge.id));
+                              }
+                            }}
+                            className="rounded border-gray-300"
+                          />
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
+                            {judge.name.charAt(0)}
+                          </div>
+                          <label 
+                            htmlFor={`judge-${judge.id}`}
+                            className="flex-1 text-sm font-medium cursor-pointer"
+                          >
+                            {judge.name}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 选择提示 */}
+                    {form.watch('selectedJudgeIds').length === 0 && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
+                        <p className="text-yellow-800 text-xs">
+                          ⚠️ 未选择任何评委，大屏幕将不显示评分数据
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-4 text-sm text-muted-foreground">
+                    暂无评委数据
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* 评委卡片设置 */}
         <Card>
           <CardHeader>
@@ -639,7 +842,7 @@ export default function DisplayManagePage() {
                   id="judgeCardWidth"
                   type="number"
                   min="200"
-                  max="400"
+                  max="600"
                   {...form.register('judgeCardWidth', { valueAsNumber: true })}
                 />
               </div>
@@ -650,7 +853,7 @@ export default function DisplayManagePage() {
                   id="judgeCardPadding"
                   type="number"
                   min="16"
-                  max="64"
+                  max="100"
                   {...form.register('judgeCardPadding', { valueAsNumber: true })}
                 />
               </div>
@@ -661,7 +864,7 @@ export default function DisplayManagePage() {
                   id="judgeCardGap"
                   type="number"
                   min="20"
-                  max="80"
+                  max="150"
                   {...form.register('judgeCardGap', { valueAsNumber: true })}
                 />
               </div>
@@ -672,7 +875,7 @@ export default function DisplayManagePage() {
                   id="judgeAvatarSize"
                   type="number"
                   min="100"
-                  max="250"
+                  max="400"
                   {...form.register('judgeAvatarSize', { valueAsNumber: true })}
                 />
               </div>
@@ -683,7 +886,7 @@ export default function DisplayManagePage() {
                   id="judgeNameFontSize"
                   type="number"
                   min="14"
-                  max="32"
+                  max="50"
                   {...form.register('judgeNameFontSize', { valueAsNumber: true })}
                 />
               </div>
@@ -694,7 +897,7 @@ export default function DisplayManagePage() {
                   id="judgeScoreFontSize"
                   type="number"
                   min="24"
-                  max="60"
+                  max="150"
                   {...form.register('judgeScoreFontSize', { valueAsNumber: true })}
                 />
               </div>

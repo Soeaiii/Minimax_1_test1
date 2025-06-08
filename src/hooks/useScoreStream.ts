@@ -106,22 +106,42 @@ export function useScoreStream(
         console.error('SSE 连接错误:', event);
         setIsConnected(false);
         
+        // 检查连接状态
+        const readyState = eventSource.readyState;
+        let errorMsg = '';
+        
+        switch (readyState) {
+          case EventSource.CONNECTING:
+            errorMsg = '正在连接中...';
+            break;
+          case EventSource.CLOSED:
+            errorMsg = '连接已关闭';
+            break;
+          default:
+            errorMsg = '连接错误';
+        }
+        
+        console.log(`SSE 连接状态: ${readyState}, 错误信息: ${errorMsg}`);
+        
         // 如果连接失败且重连次数未达到上限，则尝试重连
         if (reconnectCount < maxReconnectAttempts) {
           const newReconnectCount = reconnectCount + 1;
           setReconnectCount(newReconnectCount);
+          
+          console.log(`尝试第 ${newReconnectCount} 次重连...`);
           
           reconnectTimeoutRef.current = setTimeout(() => {
             if (onReconnect) {
               onReconnect();
             }
             connect();
-          }, reconnectDelay);
+          }, reconnectDelay * newReconnectCount); // 递增延迟
         } else {
-          const errorMsg = '连接失败，已达到最大重连次数';
-          setError(errorMsg);
+          const finalErrorMsg = '连接失败，已达到最大重连次数';
+          setError(finalErrorMsg);
+          console.error(finalErrorMsg);
           if (onError) {
-            onError(new Error(errorMsg));
+            onError(new Error(finalErrorMsg));
           }
         }
       };

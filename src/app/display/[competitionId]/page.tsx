@@ -105,10 +105,14 @@ export default function DisplayPage() {
   // 使用实时评分流
   const {
     data: scoreStreamData,
+    isConnected: streamConnected,
+    error: streamError,
+    reconnectCount,
   } = useScoreStream(competitionId, undefined, {
     enabled: true,
     onError: (error) => {
       console.error('实时评分连接错误:', error);
+      // 不在控制台显示错误，避免干扰用户
     },
     onReconnect: () => {
       console.log('正在重新连接实时评分...');
@@ -361,7 +365,7 @@ export default function DisplayPage() {
         ></div>
       )}
 
-      <div className="relative z-10 p-8">
+      <div className="relative z-10 p-4">
         {/* 标题区域 */}
         <div className="text-center mb-8">
           <h1 
@@ -429,172 +433,166 @@ export default function DisplayPage() {
           </div>
         )}
 
-        {/* 裁判评分卡片 */}
+        {/* 评委卡片 - 上方水平排列 */}
         {settings.showJudgeScores && (scoreStreamData?.judgeScores || judgeScores).length > 0 && (
-          <div className="mb-8">
-
-            {/* 评委卡片 - 水平排列 */}
-            <div className="flex justify-center mb-6">
-              <div 
-                className="flex flex-wrap justify-center max-w-7xl"
-                style={{ gap: `${settings.judgeCardGap || 40}px` }}
-              >
-                {(scoreStreamData?.judgeScores || judgeScores).map((judgeScore) => (
-                  <div
-                    key={judgeScore.judge.id}
-                    className="bg-white/90 backdrop-blur-md rounded-lg text-center shadow-lg"
-                    style={{
-                      width: `${settings.judgeCardWidth || 288}px`,
-                      padding: `${settings.judgeCardPadding || 32}px`,
-                    }}
-                  >
-                    <div className="space-y-6">
-                      <Avatar 
-                        className="mx-auto border-4 border-white"
-                        style={{
-                          width: `${settings.judgeAvatarSize || 176}px`,
-                          height: `${settings.judgeAvatarSize || 176}px`,
+          <div className="flex justify-center mb-8">
+            <div 
+              className="flex flex-wrap justify-center max-w-none"
+              style={{ gap: `${settings.judgeCardGap || 50}px` }}
+            >
+              {(scoreStreamData?.judgeScores || judgeScores).map((judgeScore) => (
+                <div
+                  key={judgeScore.judge.id}
+                  className="bg-white/90 backdrop-blur-md rounded-lg text-center shadow-lg"
+                  style={{
+                    width: `${settings.judgeCardWidth || 350}px`,
+                    padding: `${settings.judgeCardPadding || 40}px`,
+                  }}
+                >
+                  <div className="space-y-6">
+                    <Avatar 
+                      className="mx-auto border-4 border-white"
+                      style={{
+                        width: `${settings.judgeAvatarSize || 200}px`,
+                        height: `${settings.judgeAvatarSize || 200}px`,
+                      }}
+                    >
+                      <AvatarImage
+                        src={judgeScore.judge.avatar ? (
+                          // 检查是否是MongoDB ObjectId (24位字符)
+                          judgeScore.judge.avatar.length === 24
+                            ? `/api/files/${judgeScore.judge.avatar}/preview`
+                            : judgeScore.judge.avatar.startsWith('/api/files/')
+                              ? judgeScore.judge.avatar 
+                              : judgeScore.judge.avatar.startsWith('/uploads/')
+                                ? `/api/files/preview?path=${encodeURIComponent(judgeScore.judge.avatar)}`
+                                : `/uploads/${judgeScore.judge.avatar}`
+                        ) : undefined}
+                        alt={judgeScore.judge.name}
+                      />
+                      <AvatarFallback 
+                        className="font-bold bg-gradient-to-br from-blue-500 to-purple-600 text-white"
+                        style={{ fontSize: `${Math.max((settings.judgeAvatarSize || 176) * 0.2, 16)}px` }}
+                      >
+                        {judgeScore.judge.name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p 
+                        className="font-medium truncate"
+                        style={{ 
+                          color: settings.judgeNameColor || '#1f2937',
+                          fontSize: `${settings.judgeNameFontSize || 24}px`,
                         }}
                       >
-                        <AvatarImage
-                          src={judgeScore.judge.avatar ? (
-                            // 检查是否是MongoDB ObjectId (24位字符)
-                            judgeScore.judge.avatar.length === 24
-                              ? `/api/files/${judgeScore.judge.avatar}/preview`
-                              : judgeScore.judge.avatar.startsWith('/api/files/')
-                                ? judgeScore.judge.avatar 
-                                : judgeScore.judge.avatar.startsWith('/uploads/')
-                                  ? `/api/files/preview?path=${encodeURIComponent(judgeScore.judge.avatar)}`
-                                  : `/uploads/${judgeScore.judge.avatar}`
-                          ) : undefined}
-                          alt={judgeScore.judge.name}
-                        />
-                        <AvatarFallback 
-                          className="font-bold bg-gradient-to-br from-blue-500 to-purple-600 text-white"
-                          style={{ fontSize: `${Math.max((settings.judgeAvatarSize || 176) * 0.2, 16)}px` }}
-                        >
-                          {judgeScore.judge.name.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p 
-                          className="font-medium truncate"
-                          style={{ 
-                            color: settings.judgeNameColor || '#1f2937',
-                            fontSize: `${settings.judgeNameFontSize || 20}px`,
-                          }}
-                        >
-                          {judgeScore.judge.name}
-                        </p>
-                        <p 
-                          className="font-bold"
-                          style={{ 
-                            color: settings.judgeScoreColor || '#1f2937',
-                            fontSize: `${settings.judgeScoreFontSize || 36}px`,
-                          }}
-                        >
-                          {judgeScore.totalScore.toFixed(2)}
-                        </p>
-                      </div>
+                        {judgeScore.judge.name}
+                      </p>
+                      <p 
+                        className="font-bold"
+                        style={{ 
+                          color: settings.judgeScoreColor || '#1f2937',
+                          fontSize: `${settings.judgeScoreFontSize || 42}px`,
+                        }}
+                      >
+                        {judgeScore.totalScore.toFixed(2)}
+                      </p>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
+          </div>
+        )}
 
-            {/* 选手信息和平均分 */}
-            <div className="flex justify-center">
-              <div className="bg-white/20 backdrop-blur-md rounded-lg p-6 max-w-4xl w-full ml-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* 选手信息 */}
-                  {(scoreStreamData || currentProgram) && (
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-3">
+        {/* 选手信息和平均分 - 固定在底部的横向大卡片 */}
+        {(scoreStreamData || currentProgram) && (
+          <div className="fixed bottom-4 left-2 right-2 z-20">
+            <div className="bg-white/20 backdrop-blur-md rounded-lg py-12 px-10 w-full">
+              <div className="flex items-center justify-between">
+                {/* 左侧：选手信息 - 垂直布局 */}
+                <div className="flex-1 space-y-8">
+                  <div className="flex items-center space-x-4">
+                    <span 
+                      className="font-medium text-7xl whitespace-nowrap min-w-fit"
+                      style={{ color: settings.programInfoColor || '#ffffff' }}
+                    >
+                      展演序号:
+                    </span>
+                    <span 
+                      className="text-7xl font-bold"
+                      style={{ color: settings.programInfoColor || '#ffffff' }}
+                    >
+                      {scoreStreamData?.programOrder || currentProgram?.order}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <span 
+                      className="font-medium text-7xl whitespace-nowrap min-w-fit"
+                      style={{ color: settings.programInfoColor || '#ffffff' }}
+                    >
+                      展演作品:
+                    </span>
+                    <span 
+                      className="text-7xl font-bold"
+                      style={{ color: settings.programInfoColor || '#ffffff' }}
+                    >
+                      {scoreStreamData?.programName || currentProgram?.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <span 
+                      className="font-medium text-7xl whitespace-nowrap min-w-fit"
+                      style={{ color: settings.programInfoColor || '#ffffff' }}
+                    >
+                      选送机构:
+                    </span>
+                    <span 
+                      className="text-7xl font-bold"
+                      style={{ color: settings.programInfoColor || '#ffffff' }}
+                    >
+                      {(scoreStreamData?.participants || currentProgram?.participants || []).map(p => p.team).filter(Boolean).join('、') || '暂无'}
+                    </span>
+                  </div>
+                </div>
+                
+                {/* 右侧：平均分 */}
+                <div className="flex items-center justify-center mr-32">
+                  <div className="text-center">
+                    <p 
+                      className="font-medium mb-8 text-6xl"
+                      style={{ color: settings.averageScoreColor || '#ffffff' }}
+                    >
+                      平均分:
+                    </p>
+                    <div className="relative">
+                      {/* 显示平均分或等待状态 */}
+                      {scoreStreamData?.allJudgesScored || (!scoreStreamData && judgeScores.length > 0) ? (
                         <span 
-                          className="font-medium"
-                          style={{ color: settings.programInfoColor || '#ffffff' }}
+                          className="text-[12rem] font-bold transition-all duration-500 leading-none"
+                          style={{ color: settings.averageScoreColor || '#ffffff' }}
                         >
-                          选手序号：
+                          {scoreStreamData?.averageScore?.toFixed(2) || 
+                           (judgeScores.length > 0 
+                             ? (judgeScores.reduce((sum, js) => sum + js.totalScore, 0) / judgeScores.length).toFixed(2)
+                             : '0.00'
+                           )
+                          }
                         </span>
-                        <span 
-                          className="text-2xl font-bold"
-                          style={{ color: settings.programInfoColor || '#ffffff' }}
-                        >
-                          {scoreStreamData?.programOrder || currentProgram?.order}
-                        </span>
-                      </div>
-                      {(scoreStreamData?.participants || currentProgram?.participants || []).length > 0 && (
-                        <div className="flex items-center space-x-3">
+                      ) : (
+                        <div className="text-center">
                           <span 
-                            className="font-medium"
-                            style={{ color: settings.programInfoColor || '#ffffff' }}
-                          >
-                            选手姓名：
-                          </span>
-                          <span 
-                            className="text-xl font-bold"
-                            style={{ color: settings.programInfoColor || '#ffffff' }}
-                          >
-                            {(scoreStreamData?.participants || currentProgram?.participants || []).map(p => p.name).join('、')}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex items-center space-x-3">
-                        <span 
-                          className="font-medium"
-                          style={{ color: settings.programInfoColor || '#ffffff' }}
-                        >
-                          展演作品：
-                        </span>
-                        <span 
-                          className="text-lg font-medium"
-                          style={{ color: settings.programInfoColor || '#ffffff' }}
-                        >
-                          {scoreStreamData?.programName || currentProgram?.name}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* 平均分 */}
-                  <div className="flex items-center justify-center md:justify-end">
-                    <div className="text-center">
-                      <p 
-                        className="font-medium mb-2"
-                        style={{ color: settings.averageScoreColor || '#ffffff' }}
-                      >
-                        平均分：
-                      </p>
-                      <div className="relative">
-                        {/* 显示平均分或等待状态 */}
-                        {scoreStreamData?.allJudgesScored || (!scoreStreamData && judgeScores.length > 0) ? (
-                          <span 
-                            className="text-6xl font-bold transition-all duration-500"
+                            className="text-[10rem] font-bold text-yellow-400 leading-none"
                             style={{ color: settings.averageScoreColor || '#ffffff' }}
                           >
-                            {scoreStreamData?.averageScore?.toFixed(2) || 
-                             (judgeScores.length > 0 
-                               ? (judgeScores.reduce((sum, js) => sum + js.totalScore, 0) / judgeScores.length).toFixed(2)
-                               : '0.00'
-                             )
-                            }
+                            等待中...
                           </span>
-                        ) : (
-                          <div className="text-center">
-                            <span 
-                              className="text-4xl font-bold text-yellow-400"
-                              style={{ color: settings.averageScoreColor || '#ffffff' }}
-                            >
-                              等待中...
-                            </span>
-                            {scoreStreamData && (
-                              <p className="text-sm text-white/60 mt-2">
-                                已打分: {scoreStreamData.scoredJudges}/{scoreStreamData.totalJudges} 位评委
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                          {scoreStreamData && (
+                            <p className="text-3xl text-white/60 mt-6">
+                              已打分: {scoreStreamData.scoredJudges}/{scoreStreamData.totalJudges} 位评委
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -616,11 +614,26 @@ export default function DisplayPage() {
         )}
 
         {/* 状态指示器 */}
-        <div className="fixed bottom-4 right-4 flex gap-2">
+        <div className="fixed top-4 right-4 flex gap-2 z-30">
           {backgroundLoading && (
             <div className="bg-blue-500/20 backdrop-blur-md rounded-full px-4 py-2 text-blue-300 text-sm flex items-center gap-2">
               <div className="w-3 h-3 border border-blue-300 border-t-transparent rounded-full animate-spin"></div>
               背景加载中
+            </div>
+          )}
+          
+          {/* 实时连接状态 */}
+          {streamError && reconnectCount > 0 && (
+            <div className="bg-yellow-500/20 backdrop-blur-md rounded-full px-4 py-2 text-yellow-300 text-sm flex items-center gap-2">
+              <div className="w-3 h-3 border border-yellow-300 border-t-transparent rounded-full animate-spin"></div>
+              重连中 ({reconnectCount}/5)
+            </div>
+          )}
+          
+          {!streamConnected && !streamError && (
+            <div className="bg-gray-500/20 backdrop-blur-md rounded-full px-4 py-2 text-gray-300 text-sm flex items-center gap-2">
+              <div className="w-3 h-3 bg-gray-400 rounded-full animate-pulse"></div>
+              连接中
             </div>
           )}
         </div>
