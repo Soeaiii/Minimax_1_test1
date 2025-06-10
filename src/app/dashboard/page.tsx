@@ -8,6 +8,7 @@ import { QuickActions } from '@/components/dashboard/QuickActions';
 import { ProgramStatusChart } from '@/components/dashboard/ProgramStatusChart';
 import { SystemStatus } from '@/components/dashboard/SystemStatus';
 import { WelcomeHeader } from '@/components/dashboard/WelcomeHeader';
+import { SystemMaintenance } from '@/components/dashboard/SystemMaintenance';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -155,7 +156,10 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <ProgramStatusChart data={stats.programs} />
         <SystemStatus stats={stats} />
-        <QuickActions />
+        <div className="space-y-4">
+          <QuickActions />
+          <SystemMaintenance />
+        </div>
       </div>
 
       {/* 最近活动 */}

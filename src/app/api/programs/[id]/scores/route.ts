@@ -137,9 +137,18 @@ export async function POST(
     }
 
     // 验证分数范围
-    if (value < 0 || value > scoringCriteria.maxScore) {
+    if (value < 0 || isNaN(value)) {
       return NextResponse.json(
-        { error: `分数必须在 0 到 ${scoringCriteria.maxScore} 之间` },
+        { error: '分数必须是大于等于0的数字' },
+        { status: 400 }
+      );
+    }
+
+    // 验证小数精度（最多两位小数）
+    const decimalPlaces = value.toString().split('.')[1]?.length || 0;
+    if (decimalPlaces > 2) {
+      return NextResponse.json(
+        { error: '分数最多支持小数点后两位' },
         { status: 400 }
       );
     }
@@ -231,6 +240,100 @@ export async function POST(
     console.error('Error creating/updating score:', error);
     return NextResponse.json(
       { error: '评分操作失败' },
+      { status: 500 }
+    );
+  }
+}
+
+// 删除评分
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    // @ts-ignore 暂时忽略类型错误
+    const session = await getServerSession(authOptions);
+    
+    if (!session) {
+      return NextResponse.json(
+        { error: '未授权访问' },
+        { status: 401 }
+      );
+    }
+
+    const { id: programId } = await params;
+    const { searchParams } = new URL(request.url);
+    const scoreId = searchParams.get('scoreId');
+
+    if (!scoreId) {
+      return NextResponse.json(
+        { error: '缺少评分ID' },
+        { status: 400 }
+      );
+    }
+
+    // 检查评分是否存在且属于该节目
+    const score = await prisma.score.findFirst({
+      where: {
+        id: scoreId,
+        programId: programId,
+      },
+      include: {
+        program: {
+          include: {
+            competition: {
+              select: {
+                id: true,
+                organizerId: true,
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!score) {
+      return NextResponse.json(
+        { error: '评分不存在' },
+        { status: 404 }
+      );
+    }
+
+    // 权限检查：只有管理员或比赛组织者可以删除评分
+    const canDelete = session.user.role === 'ADMIN' || 
+                     score.program.competition.organizerId === session.user.id;
+
+    if (!canDelete) {
+      return NextResponse.json(
+        { error: '无权限删除此评分' },
+        { status: 403 }
+      );
+    }
+
+    // 删除评分
+    await prisma.score.delete({
+      where: { id: scoreId }
+    });
+
+    // 记录审计日志
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: 'DELETE_SCORE',
+        targetId: scoreId,
+        details: {
+          programId,
+          scoringCriteriaId: score.scoringCriteriaId,
+          value: score.value,
+        },
+      },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting score:', error);
+    return NextResponse.json(
+      { error: '删除评分失败' },
       { status: 500 }
     );
   }

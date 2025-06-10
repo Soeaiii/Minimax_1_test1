@@ -8,10 +8,13 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { ProgramStatus } from '@/lib/types';
+import { ExcelImport } from '@/components/dashboard/ExcelImport';
+import { Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 // 节目表单验证模式
@@ -55,6 +58,7 @@ export function ProgramForm({ initialData, isEditMode = false, competitionId }: 
   const [isLoadingParticipants, setIsLoadingParticipants] = useState(false);
   const [isLoadingCompetitions, setIsLoadingCompetitions] = useState(false);
   const [participantSearch, setParticipantSearch] = useState("");
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
   // 设置表单默认值
   const defaultValues: Partial<ProgramFormValues> = {
@@ -102,7 +106,8 @@ export function ProgramForm({ initialData, isEditMode = false, competitionId }: 
     const fetchParticipants = async () => {
       setIsLoadingParticipants(true);
       try {
-        const response = await fetch('/api/participants');
+        // 添加一个很大的limit参数来获取所有参赛者
+        const response = await fetch('/api/participants?limit=2000');
         if (!response.ok) {
           throw new Error('获取选手列表失败');
         }
@@ -152,6 +157,40 @@ export function ProgramForm({ initialData, isEditMode = false, competitionId }: 
   const clearAllParticipants = () => {
     setSelectedParticipants([]);
     form.setValue('participantIds', []);
+  };
+
+  // 处理选手导入完成
+  const handleParticipantImportComplete = (importedData: any[]) => {
+    // 重新加载选手列表
+    const fetchParticipants = async () => {
+      setIsLoadingParticipants(true);
+      try {
+        const response = await fetch('/api/participants?limit=2000');
+        if (!response.ok) {
+          throw new Error('获取选手列表失败');
+        }
+        const data = await response.json();
+        const participantsList = data.participants || [];
+        const validParticipants = participantsList.filter((p: any) => p && p.id && p.name);
+        setParticipants(validParticipants);
+        
+        // 自动选择新导入的选手
+        const newParticipantIds = importedData.map(p => p.id);
+        const updatedSelection = [...new Set([...selectedParticipants, ...newParticipantIds])];
+        setSelectedParticipants(updatedSelection);
+        form.setValue('participantIds', updatedSelection);
+        
+        toast.success(`成功导入 ${importedData.length} 名选手并已自动选择`);
+      } catch (error) {
+        console.error('加载选手失败:', error);
+        toast.error('重新加载选手列表失败');
+      } finally {
+        setIsLoadingParticipants(false);
+      }
+    };
+    
+    fetchParticipants();
+    setShowImportDialog(false);
   };
 
   // 当初始数据或competitionId变化时，同步表单值
@@ -400,6 +439,32 @@ export function ProgramForm({ initialData, isEditMode = false, competitionId }: 
                     选手列表 ({filteredParticipants.length} 名, 已选择 {selectedParticipants.length} 名)
                   </div>
                   <div className="flex gap-2">
+                    <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+                      <DialogTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                        >
+                          <Upload className="h-3 w-3 mr-1" />
+                          导入
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl">
+                        <DialogHeader>
+                          <DialogTitle>批量导入选手</DialogTitle>
+                          <DialogDescription>
+                            从Excel表格批量导入选手信息，导入的选手将自动添加到当前节目中
+                          </DialogDescription>
+                        </DialogHeader>
+                        <ExcelImport 
+                          type="participants"
+                          onImportComplete={handleParticipantImportComplete}
+                        />
+                      </DialogContent>
+                    </Dialog>
+                    
                     <Button
                       type="button"
                       variant="outline"

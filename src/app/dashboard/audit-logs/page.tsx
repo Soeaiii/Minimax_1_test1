@@ -164,7 +164,7 @@ export default function AuditLogsPage() {
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = url;
-        a.download = `audit-logs-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+        a.download = `audit-logs-${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);

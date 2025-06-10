@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogOut, Settings, User } from 'lucide-react';
+import { LogOut, User } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -79,12 +79,6 @@ export function UserNav() {
           <Link href="/dashboard/profile">
             <User className="mr-2 h-4 w-4" />
             <span>个人信息</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/dashboard/settings">
-            <Settings className="mr-2 h-4 w-4" />
-            <span>设置</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

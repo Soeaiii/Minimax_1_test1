@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { ExcelImport } from "@/components/dashboard/ExcelImport";
 import { 
   Users, 
   Plus, 
@@ -25,7 +26,8 @@ import {
   AlertCircle,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Upload
 } from "lucide-react";
 import Link from "next/link";
 
@@ -83,6 +85,13 @@ export default function ParticipantsPage() {
   // 删除确认状态
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [participantToDelete, setParticipantToDelete] = useState<Participant | null>(null);
+  
+  // 删除全部选手状态
+  const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Excel导入状态
+  const [showImportDialog, setShowImportDialog] = useState(false);
   
   // 可用团队列表
   const [teams, setTeams] = useState<string[]>([]);
@@ -282,6 +291,42 @@ export default function ParticipantsPage() {
       : 'bg-blue-100 text-blue-800 border-blue-200';
   };
 
+  // 处理导入完成
+  const handleImportComplete = (importedData: any[]) => {
+    // 刷新选手列表
+    fetchParticipants(pagination.page);
+    setShowImportDialog(false);
+  };
+
+  // 删除全部选手
+  const handleDeleteAllParticipants = async () => {
+    setIsDeleting(true);
+    try {
+      const response = await fetch('/api/participants/delete-all', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(`${result.message}`);
+        setShowDeleteAllDialog(false);
+        fetchParticipants(1); // 重新加载第一页
+        setPagination(prev => ({ ...prev, page: 1 }));
+      } else {
+        const error = await response.json();
+        alert(`删除失败: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('删除全部选手失败:', error);
+      alert('删除过程中发生错误');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -291,12 +336,35 @@ export default function ParticipantsPage() {
             管理所有比赛的参赛选手，包括个人选手和团队
           </p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/participants/new">
-            <UserPlus className="mr-2 h-4 w-4" />
-            添加选手
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Upload className="mr-2 h-4 w-4" />
+                批量导入
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl">
+              <DialogHeader>
+                <DialogTitle>批量导入选手</DialogTitle>
+                <DialogDescription>
+                  从Excel表格批量导入选手信息，支持姓名、简介、团队、联系方式等字段
+                </DialogDescription>
+              </DialogHeader>
+              <ExcelImport 
+                type="participants"
+                onImportComplete={handleImportComplete}
+              />
+            </DialogContent>
+          </Dialog>
+          
+          <Button asChild>
+            <Link href="/dashboard/participants/new">
+              <UserPlus className="mr-2 h-4 w-4" />
+              添加选手
+            </Link>
+          </Button>
+        </div>
       </div>
       
       {/* 搜索和筛选 */}
@@ -342,6 +410,17 @@ export default function ParticipantsPage() {
                 <RefreshCw className="mr-2 h-4 w-4" />
                 刷新
               </Button>
+              
+              {participants.length > 0 && (
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={() => setShowDeleteAllDialog(true)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  删除全部
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -705,6 +784,55 @@ export default function ParticipantsPage() {
         </DialogContent>
       </Dialog>
       
+      {/* 删除全部选手确认对话框 */}
+      <Dialog open={showDeleteAllDialog} onOpenChange={setShowDeleteAllDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-destructive">⚠️ 危险操作</DialogTitle>
+            <DialogDescription>
+              <div className="space-y-2">
+                <p>确定要删除 <strong>全部 {pagination.total} 名选手</strong> 吗？</p>
+                <p className="text-destructive font-medium">此操作将：</p>
+                <ul className="list-disc list-inside text-sm space-y-1">
+                  <li>永久删除所有选手数据</li>
+                  <li>清空所有节目的参与者关联</li>
+                  <li>此操作无法撤销</li>
+                </ul>
+                <p className="text-xs text-muted-foreground mt-2">
+                  只有管理员可以执行此操作
+                </p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowDeleteAllDialog(false)}
+              disabled={isDeleting}
+            >
+              取消
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteAllParticipants}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  删除中...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  确认删除全部
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* 删除确认对话框 */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent className="max-w-md">

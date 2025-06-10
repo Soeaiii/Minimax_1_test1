@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
+import * as XLSX from 'xlsx';
 
 export async function GET(
   request: Request,
@@ -20,7 +21,7 @@ export async function GET(
 
     const { id: competitionId } = await params;
     const { searchParams } = new URL(request.url);
-    const format = searchParams.get('format') || 'csv';
+    const format = searchParams.get('format') || 'xlsx';
     const type = searchParams.get('type') || 'scores';
 
     // 检查比赛是否存在和权限
@@ -129,13 +130,17 @@ async function exportScoresData(competitionId: string, format: string, competiti
   // 创建评委ID到名字的映射
   const judgeMap = new Map(judges.map(judge => [judge.id, judge.name]));
 
-  if (format === 'csv') {
-    let csvContent = '';
+  if (format === 'xlsx') {
+    // 创建Excel数据数组
+    const excelData = [];
     
-    // CSV 标题行
-    csvContent += '节目名称,节目顺序,选手姓名,选手团队,评委姓名,评分标准,分数,权重,最高分,评语,评分时间,总分\n';
+    // 添加标题行
+    excelData.push([
+      '节目名称', '节目顺序', '选手姓名', '选手团队', '评委姓名', 
+      '评分标准', '分数', '权重', '最高分', '评语', '评分时间', '总分'
+    ]);
     
-    // 数据行
+    // 添加数据行
     for (const program of programsWithScores) {
       const participantNames = program.participants.map(p => p.name).join('、');
       const participantTeams = program.participants.map(p => p.team || '无').join('、');
@@ -143,20 +148,52 @@ async function exportScoresData(competitionId: string, format: string, competiti
       
       if (program.scores.length === 0) {
         // 没有评分的节目也要显示
-        csvContent += `"${program.name}","${program.order}","${participantNames}","${participantTeams}","","","","","","","","0"\n`;
+        excelData.push([
+          program.name, program.order, participantNames, participantTeams,
+          '', '', '', '', '', '', '', 0
+        ]);
       } else {
         for (const score of program.scores) {
           const judgeName = judgeMap.get(score.judgeId) || '未知评委';
-          csvContent += `"${program.name}","${program.order}","${participantNames}","${participantTeams}","${judgeName}","${score.scoringCriteria.name}","${score.value}","${score.scoringCriteria.weight}","${score.scoringCriteria.maxScore}","${score.comment || ''}","${new Date(score.createdAt).toLocaleString('zh-CN')}","${totalScore}"\n`;
+          excelData.push([
+            program.name, program.order, participantNames, participantTeams,
+            judgeName, score.scoringCriteria.name, score.value,
+            score.scoringCriteria.weight, score.scoringCriteria.maxScore,
+            score.comment || '', new Date(score.createdAt).toLocaleString('zh-CN'),
+            totalScore
+          ]);
         }
       }
     }
 
-    const fileName = `${competition.name}-评分数据-${new Date().toISOString().split('T')[0]}.csv`;
+    // 创建工作簿和工作表
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet(excelData);
     
-    return new NextResponse(csvContent, {
+    // 设置列宽
+    worksheet['!cols'] = [
+      { wch: 20 }, // 节目名称
+      { wch: 10 }, // 节目顺序
+      { wch: 15 }, // 选手姓名
+      { wch: 15 }, // 选手团队
+      { wch: 12 }, // 评委姓名
+      { wch: 15 }, // 评分标准
+      { wch: 8 },  // 分数
+      { wch: 8 },  // 权重
+      { wch: 8 },  // 最高分
+      { wch: 20 }, // 评语
+      { wch: 18 }, // 评分时间
+      { wch: 10 }  // 总分
+    ];
+    
+    XLSX.utils.book_append_sheet(workbook, worksheet, '评分数据');
+
+    const fileName = `${competition.name}-评分数据-${new Date().toISOString().split('T')[0]}.xlsx`;
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    
+    return new NextResponse(buffer, {
       headers: {
-        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
       },
     });
@@ -217,22 +254,52 @@ async function exportRankingsData(competitionId: string, format: string, competi
     orderBy: { rank: 'asc' }
   });
 
-  if (format === 'csv') {
-    let csvContent = '';
-    csvContent += '排名,节目名称,选手姓名,选手团队,总分,更新方式,更新时间\n';
+  if (format === 'xlsx') {
+    // 创建Excel数据数组
+    const excelData = [];
     
+    // 添加标题行
+    excelData.push(['排名', '节目名称', '选手姓名', '选手团队', '总分', '更新方式', '更新时间']);
+    
+    // 添加数据行
     for (const ranking of rankings) {
       const participantNames = ranking.program.participants.map(p => p.name).join('、');
       const participantTeams = ranking.program.participants.map(p => p.team || '无').join('、');
       
-      csvContent += `"${ranking.rank}","${ranking.program.name}","${participantNames}","${participantTeams}","${ranking.totalScore}","${ranking.updateType === 'AUTO' ? '自动计算' : '手动调整'}","${new Date(ranking.updatedAt).toLocaleString('zh-CN')}"\n`;
+      excelData.push([
+        ranking.rank,
+        ranking.program.name,
+        participantNames,
+        participantTeams,
+        ranking.totalScore,
+        ranking.updateType === 'AUTO' ? '自动计算' : '手动调整',
+        new Date(ranking.updatedAt).toLocaleString('zh-CN')
+      ]);
     }
 
-    const fileName = `${competition.name}-排名数据-${new Date().toISOString().split('T')[0]}.csv`;
+    // 创建工作簿和工作表
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet(excelData);
     
-    return new NextResponse(csvContent, {
+    // 设置列宽
+    worksheet['!cols'] = [
+      { wch: 8 },  // 排名
+      { wch: 20 }, // 节目名称
+      { wch: 15 }, // 选手姓名
+      { wch: 15 }, // 选手团队
+      { wch: 10 }, // 总分
+      { wch: 12 }, // 更新方式
+      { wch: 18 }  // 更新时间
+    ];
+    
+    XLSX.utils.book_append_sheet(workbook, worksheet, '排名数据');
+
+    const fileName = `${competition.name}-排名数据-${new Date().toISOString().split('T')[0]}.xlsx`;
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    
+    return new NextResponse(buffer, {
       headers: {
-        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
       },
     });
@@ -275,19 +342,49 @@ async function exportParticipantsData(competitionId: string, format: string, com
 
   const participants = Array.from(participantMap.values());
 
-  if (format === 'csv') {
-    let csvContent = '';
-    csvContent += '选手姓名,选手团队,联系方式,个人简介,参与节目,参与节目数量,注册时间\n';
+  if (format === 'xlsx') {
+    // 创建Excel数据数组
+    const excelData = [];
     
+    // 添加标题行
+    excelData.push(['选手姓名', '选手团队', '联系方式', '个人简介', '参与节目', '参与节目数量', '注册时间']);
+    
+    // 添加数据行
     for (const participant of participants) {
-      csvContent += `"${participant.name}","${participant.team || '无'}","${participant.contact || ''}","${participant.bio || ''}","${participant.programs.join('、')}","${participant.programs.length}","${new Date(participant.createdAt).toLocaleString('zh-CN')}"\n`;
+      excelData.push([
+        participant.name,
+        participant.team || '无',
+        participant.contact || '',
+        participant.bio || '',
+        participant.programs.join('、'),
+        participant.programs.length,
+        new Date(participant.createdAt).toLocaleString('zh-CN')
+      ]);
     }
 
-    const fileName = `${competition.name}-选手数据-${new Date().toISOString().split('T')[0]}.csv`;
+    // 创建工作簿和工作表
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet(excelData);
     
-    return new NextResponse(csvContent, {
+    // 设置列宽
+    worksheet['!cols'] = [
+      { wch: 12 }, // 选手姓名
+      { wch: 15 }, // 选手团队
+      { wch: 15 }, // 联系方式
+      { wch: 25 }, // 个人简介
+      { wch: 30 }, // 参与节目
+      { wch: 12 }, // 参与节目数量
+      { wch: 18 }  // 注册时间
+    ];
+    
+    XLSX.utils.book_append_sheet(workbook, worksheet, '选手数据');
+
+    const fileName = `${competition.name}-选手数据-${new Date().toISOString().split('T')[0]}.xlsx`;
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    
+    return new NextResponse(buffer, {
       headers: {
-        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
       },
     });

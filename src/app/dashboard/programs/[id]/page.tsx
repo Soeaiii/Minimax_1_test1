@@ -27,7 +27,7 @@ import {
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { ProgramStatusUpdater } from "@/components/dashboard/programs/ProgramStatusUpdater";
-import { ScoreDisplay } from "@/components/dashboard/programs/ScoreDisplay";
+import { ScoreManager } from "@/components/dashboard/programs/ScoreManager";
 import { ParticipantCard } from "@/components/dashboard/programs/ParticipantCard";
 import { FileAttachmentList } from "@/components/dashboard/programs/FileAttachmentList";
 
@@ -290,7 +290,12 @@ export default async function ProgramDetailPage({ params }: PageProps) {
               </div>
             </CardHeader>
             <CardContent>
-              <ScoreDisplay scores={program.scores} />
+              <ScoreManager
+                programId={program.id}
+                competitionId={program.competitionId}
+                initialScores={program.scores}
+                canEdit={canEdit}
+              />
             </CardContent>
           </Card>
         </TabsContent>

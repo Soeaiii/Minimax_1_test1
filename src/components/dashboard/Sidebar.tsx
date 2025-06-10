@@ -8,7 +8,6 @@ import {
   ListMusic, 
   Users, 
   FileText, 
-  Settings,
   FileUp,
   Scale,
   Monitor
@@ -24,7 +23,6 @@ const navItems = [
   { href: '/dashboard/display', label: '大屏幕管理', icon: Monitor },
   { href: '/dashboard/audit-logs', label: '审计日志', icon: FileText },
   { href: '/dashboard/files', label: '文件管理', icon: FileUp },
-  { href: '/dashboard/settings', label: '设置', icon: Settings },
 ];
 
 export function Sidebar() {

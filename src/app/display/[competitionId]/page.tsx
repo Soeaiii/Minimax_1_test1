@@ -443,7 +443,7 @@ export default function DisplayPage() {
               {(scoreStreamData?.judgeScores || judgeScores).map((judgeScore) => (
                 <div
                   key={judgeScore.judge.id}
-                  className="bg-white/90 backdrop-blur-md rounded-lg text-center shadow-lg"
+                  className="bg-white/20 backdrop-blur-md rounded-lg text-center shadow-lg"
                   style={{
                     width: `${settings.judgeCardWidth || 350}px`,
                     padding: `${settings.judgeCardPadding || 40}px`,
@@ -481,7 +481,7 @@ export default function DisplayPage() {
                       <p 
                         className="font-medium truncate"
                         style={{ 
-                          color: settings.judgeNameColor || '#1f2937',
+                          color: settings.judgeNameColor || '#ffffff',
                           fontSize: `${settings.judgeNameFontSize || 24}px`,
                         }}
                       >
@@ -490,7 +490,7 @@ export default function DisplayPage() {
                       <p 
                         className="font-bold"
                         style={{ 
-                          color: settings.judgeScoreColor || '#1f2937',
+                          color: settings.judgeScoreColor || '#ffffff',
                           fontSize: `${settings.judgeScoreFontSize || 42}px`,
                         }}
                       >
@@ -550,7 +550,7 @@ export default function DisplayPage() {
                       className="text-7xl font-bold"
                       style={{ color: settings.programInfoColor || '#ffffff' }}
                     >
-                      {(scoreStreamData?.participants || currentProgram?.participants || []).map(p => p.team).filter(Boolean).join('、') || '暂无'}
+                      {[...new Set((scoreStreamData?.participants || currentProgram?.participants || []).map(p => p.team).filter(Boolean))].join('、') || '暂无'}
                     </span>
                   </div>
                 </div>
@@ -562,7 +562,7 @@ export default function DisplayPage() {
                       className="font-medium mb-8 text-6xl"
                       style={{ color: settings.averageScoreColor || '#ffffff' }}
                     >
-                      平均分:
+                      最终得分:
                     </p>
                     <div className="relative">
                       {/* 显示平均分或等待状态 */}

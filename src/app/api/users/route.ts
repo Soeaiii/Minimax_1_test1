@@ -22,7 +22,9 @@ export async function GET(request: Request) {
     const role = searchParams.get('role') as UserRole | null;
     const search = searchParams.get('search');
     
-    let where = {};
+    let where: any = {
+      isDeleted: false, // 只返回未删除的用户
+    };
     
     // 如果指定了角色，按角色筛选
     if (role) {
@@ -43,7 +45,7 @@ export async function GET(request: Request) {
       };
     }
     
-        // 查询用户，但不返回密码
+    // 查询用户，但不返回密码
     const users = await prisma.user.findMany({
       where,
       select: {
@@ -52,6 +54,7 @@ export async function GET(request: Request) {
         email: true,
         role: true,
         avatar: true,
+        bio: true,
         createdAt: true,
       },
       orderBy: {

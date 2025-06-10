@@ -4,9 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ListMusic, Trophy, Users, BarChart3, Download, Monitor, RefreshCw } from "lucide-react";
+import { ListMusic, Trophy, Users, BarChart3, Download, Monitor, RefreshCw, Upload } from "lucide-react";
 import { Suspense, useState } from "react";
 import dynamic from 'next/dynamic';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ExcelImport } from '@/components/dashboard/ExcelImport';
+import { ExportData } from './ExportData';
 
 // 动态导入客户端组件
 const CompetitionStats = dynamic(
@@ -20,25 +23,6 @@ const CompetitionStats = dynamic(
             <div className="text-center">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-r-transparent mx-auto mb-2"></div>
               <p className="text-sm text-muted-foreground">正在加载统计数据...</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-);
-
-const ExportData = dynamic(
-  () => import("@/components/dashboard/competitions/ExportData").then(mod => ({ default: mod.ExportData })),
-  { 
-    ssr: false,
-    loading: () => (
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex h-32 items-center justify-center">
-            <div className="text-center">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-r-transparent mx-auto mb-2"></div>
-              <p className="text-sm text-muted-foreground">正在加载导出功能...</p>
             </div>
           </div>
         </CardContent>
@@ -73,6 +57,7 @@ interface CompetitionTabsProps {
 
 export function CompetitionTabs({ competition, competitionId }: CompetitionTabsProps) {
   const [refreshingRankings, setRefreshingRankings] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
   const refreshRankings = async () => {
     try {
@@ -96,6 +81,13 @@ export function CompetitionTabs({ competition, competitionId }: CompetitionTabsP
     } finally {
       setRefreshingRankings(false);
     }
+  };
+
+  // 处理导入完成
+  const handleImportComplete = (importedData: any[]) => {
+    // 刷新页面数据
+    window.location.reload();
+    setShowImportDialog(false);
   };
 
   return (
@@ -134,11 +126,35 @@ export function CompetitionTabs({ competition, competitionId }: CompetitionTabsP
               <CardTitle>节目管理</CardTitle>
               <CardDescription>管理该比赛的所有节目</CardDescription>
             </div>
-            <Button size="sm" asChild>
-              <Link href={`/dashboard/programs/new?competitionId=${competitionId}`}>
-                添加节目
-              </Link>
-            </Button>
+            <div className="flex gap-2">
+              <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Upload className="mr-2 h-4 w-4" />
+                    批量导入
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl">
+                  <DialogHeader>
+                    <DialogTitle>批量导入节目</DialogTitle>
+                    <DialogDescription>
+                      从Excel表格批量导入节目信息到《{competition.name}》比赛
+                    </DialogDescription>
+                  </DialogHeader>
+                  <ExcelImport 
+                    type="programs"
+                    competitionId={competitionId}
+                    onImportComplete={handleImportComplete}
+                  />
+                </DialogContent>
+              </Dialog>
+              
+              <Button size="sm" asChild>
+                <Link href={`/dashboard/programs/new?competitionId=${competitionId}`}>
+                  添加节目
+                </Link>
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {competition.programs && competition.programs.length > 0 ? (

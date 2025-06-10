@@ -61,6 +61,7 @@ export async function GET(request: Request) {
       };
     }
     
+    // 优化查询 - 分步获取数据避免重复查询
     const programs = await prisma.program.findMany({
       where,
       include: {
@@ -71,15 +72,45 @@ export async function GET(request: Request) {
             organizerId: true,
           },
         },
-        participants: true,
       },
       orderBy: [
         { competitionId: 'asc' },
         { order: 'asc' },
       ],
     });
+
+    // 批量获取所有参与者信息
+    const allParticipantIds = [...new Set(programs.flatMap(p => p.participantIds || []))];
+    const participants = allParticipantIds.length > 0 
+      ? await prisma.participant.findMany({
+          where: {
+            id: { in: allParticipantIds }
+          },
+          select: {
+            id: true,
+            name: true,
+            bio: true,
+            team: true,
+            contact: true,
+            createdAt: true,
+            updatedAt: true,
+            programIds: true,
+          }
+        })
+      : [];
+
+    // 创建参与者映射
+    const participantMap = new Map(participants.map(p => [p.id, p]));
+
+    // 组装最终数据
+    const programsWithParticipants = programs.map(program => ({
+      ...program,
+      participants: (program.participantIds || [])
+        .map(id => participantMap.get(id))
+        .filter(Boolean)
+    }));
     
-    return NextResponse.json(programs);
+    return NextResponse.json(programsWithParticipants);
   } catch (error) {
     console.error('Error fetching programs:', error);
     return NextResponse.json(
@@ -133,16 +164,36 @@ export async function POST(request: Request) {
       );
     }
     
-    // 创建节目
-    const program = await prisma.program.create({
-      data: {
-        name: body.name,
-        description: body.description,
-        order: body.order,
-        currentStatus: body.currentStatus,
-        competitionId: body.competitionId,
-        participantIds: body.participantIds || [],
-      },
+    // 创建节目并建立参与者关联
+    const program = await prisma.$transaction(async (tx) => {
+      // 先创建节目
+      const newProgram = await tx.program.create({
+        data: {
+          name: body.name,
+          description: body.description,
+          order: body.order,
+          currentStatus: body.currentStatus,
+          competitionId: body.competitionId,
+          participantIds: body.participantIds || [],
+        },
+      });
+      
+      // 如果有参与者，建立关联
+      if (body.participantIds && body.participantIds.length > 0) {
+        // 更新参与者的programIds数组
+        for (const participantId of body.participantIds) {
+          await tx.participant.update({
+            where: { id: participantId },
+            data: {
+              programIds: {
+                push: newProgram.id
+              }
+            }
+          });
+        }
+      }
+      
+      return newProgram;
     });
     
     // 记录审计日志

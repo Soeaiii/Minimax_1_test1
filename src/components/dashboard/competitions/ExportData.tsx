@@ -31,7 +31,7 @@ interface ExportDataProps {
 }
 
 type ExportType = 'scores' | 'rankings' | 'participants';
-type ExportFormat = 'csv' | 'json';
+type ExportFormat = 'xlsx' | 'json';
 
 interface ExportStatus {
   type: ExportType;
@@ -70,13 +70,13 @@ export function ExportData({ competitionId, competitionName }: ExportDataProps) 
         throw new Error(errorData.error || '导出失败');
       }
 
-      if (format === 'csv') {
-        // 处理CSV文件下载
+      if (format === 'xlsx') {
+        // 处理XLSX文件下载
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${competitionName}-${getTypeLabel(type)}-${new Date().toISOString().split('T')[0]}.csv`;
+        a.download = `${competitionName}-${getTypeLabel(type)}-${new Date().toISOString().split('T')[0]}.xlsx`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -205,7 +205,7 @@ export function ExportData({ competitionId, competitionName }: ExportDataProps) 
             数据导出
           </CardTitle>
           <CardDescription>
-            导出比赛的各类数据，支持 CSV 和 JSON 格式
+            导出比赛的各类数据，支持 XLSX 和 JSON 格式
           </CardDescription>
         </CardHeader>
       </Card>
@@ -250,38 +250,38 @@ export function ExportData({ competitionId, competitionName }: ExportDataProps) 
                 <div className="space-y-4">
                   <h4 className="text-sm font-medium">选择导出格式：</h4>
                   <div className="grid gap-4 md:grid-cols-2">
-                    {/* CSV 导出 */}
+                    {/* XLSX 导出 */}
                     <Card className="p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <FileSpreadsheet className="h-5 w-5 text-green-600" />
-                          <span className="font-medium">CSV 格式</span>
+                          <span className="font-medium">XLSX 格式</span>
                         </div>
                         <Badge variant="outline">推荐</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mb-4">
-                        表格格式，适合用 Excel 打开查看和分析
+                        Excel 格式，适合用 Excel、WPS 等软件打开查看和分析
                       </p>
                       <Button 
                         className="w-full" 
-                        onClick={() => handleExport(option.type, 'csv')}
-                        disabled={exportStatuses[`${option.type}-csv`]?.status === 'loading'}
+                        onClick={() => handleExport(option.type, 'xlsx')}
+                        disabled={exportStatuses[`${option.type}-xlsx`]?.status === 'loading'}
                       >
-                        {getStatusIcon(exportStatuses[`${option.type}-csv`] || { status: 'idle' } as ExportStatus)}
+                        {getStatusIcon(exportStatuses[`${option.type}-xlsx`] || { status: 'idle' } as ExportStatus)}
                         <span className="ml-2">
-                          {exportStatuses[`${option.type}-csv`]?.status === 'loading' 
+                          {exportStatuses[`${option.type}-xlsx`]?.status === 'loading' 
                             ? '导出中...' 
-                            : exportStatuses[`${option.type}-csv`]?.status === 'success'
+                            : exportStatuses[`${option.type}-xlsx`]?.status === 'success'
                             ? '导出成功'
-                            : exportStatuses[`${option.type}-csv`]?.status === 'error'
+                            : exportStatuses[`${option.type}-xlsx`]?.status === 'error'
                             ? '导出失败'
-                            : '导出 CSV'
+                            : '导出 XLSX'
                           }
                         </span>
                       </Button>
-                      {exportStatuses[`${option.type}-csv`]?.error && (
+                      {exportStatuses[`${option.type}-xlsx`]?.error && (
                         <p className="text-xs text-red-500 mt-2">
-                          {exportStatuses[`${option.type}-csv`].error}
+                          {exportStatuses[`${option.type}-xlsx`].error}
                         </p>
                       )}
                     </Card>
@@ -338,7 +338,7 @@ export function ExportData({ competitionId, competitionName }: ExportDataProps) 
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <div className="flex items-start gap-2">
             <span className="font-medium text-foreground">1.</span>
-            <span>CSV 格式适合在 Excel、Google Sheets 等表格软件中查看和分析</span>
+            <span>XLSX 格式适合在 Excel、WPS Office、Google Sheets 等表格软件中查看和分析</span>
           </div>
           <div className="flex items-start gap-2">
             <span className="font-medium text-foreground">2.</span>
@@ -350,6 +350,10 @@ export function ExportData({ competitionId, competitionName }: ExportDataProps) 
           </div>
           <div className="flex items-start gap-2">
             <span className="font-medium text-foreground">4.</span>
+            <span>XLSX 文件包含格式化的表格，列宽已自动调整，方便查看</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="font-medium text-foreground">5.</span>
             <span>评分数据包含所有评委的详细打分，可用于深度分析</span>
           </div>
         </CardContent>

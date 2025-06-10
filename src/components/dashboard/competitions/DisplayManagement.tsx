@@ -145,7 +145,7 @@ export function DisplayManagement({ competitionId }: DisplayManagementProps) {
   // 智能状态切换（设置待保存状态）
   const smartStatusUpdate = (programId: string) => {
     const program = displayData?.programs.find(p => p.id === programId);
-    if (!program) return;
+    if (!program || !displayData) return;
 
     // 如果有待保存的状态，使用待保存的状态，否则使用当前状态
     const currentStatus = pendingStatusUpdates[programId] || program.currentStatus;
@@ -168,6 +168,23 @@ export function DisplayManagement({ competitionId }: DisplayManagementProps) {
     }
 
     setPendingProgramStatus(programId, newStatus);
+
+    // 智能节目切换：当节目从"进行中"变为"已完成"时，自动切换到下一个节目
+    if (currentStatus === 'PERFORMING' && newStatus === 'COMPLETED') {
+      // 按order排序找到下一个节目
+      const sortedPrograms = [...displayData.programs].sort((a, b) => a.order - b.order);
+      const currentIndex = sortedPrograms.findIndex(p => p.id === programId);
+      
+      if (currentIndex >= 0 && currentIndex < sortedPrograms.length - 1) {
+        // 有下一个节目，切换到下一个节目
+        const nextProgram = sortedPrograms[currentIndex + 1];
+        form.setValue('currentProgramId', nextProgram.id);
+        
+        // 可选：自动将下一个节目设置为"进行中"
+        setPendingProgramStatus(nextProgram.id, 'PERFORMING');
+      }
+      // 如果是最后一个节目，保持在当前节目
+    }
   };
 
   // 批量设置待保存状态
@@ -228,15 +245,54 @@ export function DisplayManagement({ competitionId }: DisplayManagementProps) {
         await Promise.all(statusUpdatePromises);
       }
 
+      // 更新本地状态而不是重新加载数据
+      if (hasUnsavedChanges) {
+        // 更新本地节目状态
+        setDisplayData(prevData => {
+          if (!prevData) return prevData;
+          
+          const updatedPrograms = prevData.programs.map(program => {
+            if (pendingStatusUpdates[program.id]) {
+              return {
+                ...program,
+                currentStatus: pendingStatusUpdates[program.id]
+              };
+            }
+            return program;
+          });
+          
+          return {
+            ...prevData,
+            programs: updatedPrograms,
+            settings: {
+              ...prevData.settings,
+              ...data
+            }
+          };
+        });
+        
+        // 清除待保存的状态更新
+        setPendingStatusUpdates({});
+      } else {
+        // 只更新设置
+        setDisplayData(prevData => {
+          if (!prevData) return prevData;
+          return {
+            ...prevData,
+            settings: {
+              ...prevData.settings,
+              ...data
+            }
+          };
+        });
+      }
+
       setSuccessMessage(
         hasUnsavedChanges 
           ? `设置和节目状态保存成功！更新了 ${Object.keys(pendingStatusUpdates).length} 个节目的状态。`
           : '设置保存成功！'
       );
       setTimeout(() => setSuccessMessage(null), 3000);
-      
-      // 重新获取数据
-      await fetchDisplayData();
     } catch (error) {
       setError(error instanceof Error ? error.message : '保存失败');
     } finally {
@@ -457,11 +513,23 @@ export function DisplayManagement({ competitionId }: DisplayManagementProps) {
                             onClick={() => smartStatusUpdate(currentProgram.id)}
                             disabled={false}
                             className="flex items-center gap-1"
-                            title="智能切换：等待中→进行中→已完成→等待中"
+                            title="智能切换：等待中→进行中→已完成→等待中（完成时自动切换到下一个节目）"
                           >
                             <Settings className="h-3 w-3" />
                             智能切换
                           </Button>
+                          {hasUnsavedChanges && (
+                            <Button
+                              type="submit"
+                              variant="default"
+                              size="sm"
+                              disabled={saving}
+                              className="flex items-center gap-1"
+                            >
+                              <Save className="h-3 w-3" />
+                              {saving ? '保存中...' : '保存'}
+                            </Button>
+                          )}
                         </div>
                         
                         {/* 显示待保存状态提示 */}
@@ -469,7 +537,7 @@ export function DisplayManagement({ competitionId }: DisplayManagementProps) {
                           <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
                             <span className="font-medium">待保存状态：</span>
                             {getProgramStatusText(pendingStatusUpdates[currentProgram.id])}
-                            <span className="ml-2 text-xs">（点击下方保存按钮确认更改）</span>
+                            <span className="ml-2 text-xs">（点击右侧保存按钮确认更改）</span>
                           </div>
                         )}
                       </div>
@@ -498,24 +566,56 @@ export function DisplayManagement({ competitionId }: DisplayManagementProps) {
                 </div>
                 
                 {programs.length > 0 ? (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                    {programs.map((program) => (
-                      <Button
+                  <div className="space-y-1 max-h-64 overflow-y-auto border rounded-md">
+                    {programs.map((program, index) => (
+                      <div
                         key={program.id}
-                        type="button"
-                        size="sm"
+                        className={`flex items-center justify-between p-3 hover:bg-muted/50 cursor-pointer transition-colors ${
+                          form.watch('currentProgramId') === program.id 
+                            ? 'bg-primary/10 border-l-4 border-l-primary' 
+                            : index > 0 ? 'border-t' : ''
+                        }`}
                         onClick={() => form.setValue('currentProgramId', program.id)}
-                        className={getProgramStatusStyles(getProgramDisplayStatus(program.id), form.watch('currentProgramId') === program.id)}
-                        title={`${program.name} - ${program.participants.map(p => p.name).join('、')} (${getProgramStatusText(getProgramDisplayStatus(program.id))})`}
+                        title={`${program.name} - ${program.participants.map(p => p.name).join('、')}`}
                       >
-                        <div className="flex flex-col items-center space-y-1 w-full">
-                          <span className="text-lg font-bold">{program.order}</span>
-                          <span className="text-xs truncate w-full">{program.name}</span>
-                          <span className="text-xs opacity-80">
-                            {getProgramStatusText(getProgramDisplayStatus(program.id))}
-                          </span>
+                        <div className="flex items-center space-x-3 flex-1 min-w-0">
+                          <div className="flex-shrink-0">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                              getProgramDisplayStatus(program.id) === 'WAITING' ? 'bg-yellow-100 text-yellow-700' :
+                              getProgramDisplayStatus(program.id) === 'PERFORMING' ? 'bg-blue-100 text-blue-700' :
+                              'bg-green-100 text-green-700'
+                            }`}>
+                              {program.order}
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2">
+                              <span className="font-medium text-sm truncate">{program.name}</span>
+                              {pendingStatusUpdates[program.id] && (
+                                <span className="text-xs text-amber-600">*</span>
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {program.participants.length > 0 
+                                ? program.participants.map(p => p.name).join('、')
+                                : '暂无选手'
+                              }
+                            </div>
+                          </div>
                         </div>
-                      </Button>
+                        <div className="flex items-center space-x-2 flex-shrink-0">
+                          <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            getProgramDisplayStatus(program.id) === 'WAITING' ? 'bg-yellow-100 text-yellow-700' :
+                            getProgramDisplayStatus(program.id) === 'PERFORMING' ? 'bg-blue-100 text-blue-700' :
+                            'bg-green-100 text-green-700'
+                          }`}>
+                            {getProgramStatusText(getProgramDisplayStatus(program.id))}
+                          </div>
+                          {form.watch('currentProgramId') === program.id && (
+                            <div className="w-2 h-2 bg-primary rounded-full"></div>
+                          )}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 ) : (
@@ -589,15 +689,10 @@ export function DisplayManagement({ competitionId }: DisplayManagementProps) {
                     </span>
                   </div>
                   <p className="text-xs text-amber-700 mt-1">
-                    点击下方"保存节目设置"按钮来保存所有更改，或使用"清除未保存更改"来撤销。
+                    点击智能切换旁边的"保存"按钮来保存所有更改，或使用"清除未保存更改"来撤销。
                   </p>
                 </div>
               )}
-
-              <Button type="submit" disabled={saving} className="w-full">
-                <Save className="h-4 w-4 mr-2" />
-                {saving ? '保存中...' : hasUnsavedChanges ? `保存节目设置 (${Object.keys(pendingStatusUpdates).length} 项更改)` : '保存节目设置'}
-              </Button>
             </form>
           </CardContent>
         </Card>

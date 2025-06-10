@@ -32,10 +32,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { UserPlus, Search, Edit, Trash2 } from 'lucide-react';
+import { UserPlus, Search, Edit, Trash2, Loader2, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 interface Judge {
   id: string;
@@ -54,14 +55,24 @@ export default function JudgesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [judgeToDelete, setJudgeToDelete] = useState<Judge | null>(null);
+  const [deleteError, setDeleteError] = useState<{
+    hasScores: boolean;
+    scoresCount: number;
+    canForceDelete: boolean;
+  } | null>(null);
 
   useEffect(() => {
     fetchJudges();
   }, []);
 
+
+
   const fetchJudges = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await fetch('/api/users?role=JUDGE');
       if (!response.ok) {
         throw new Error('获取评委列表失败');
@@ -69,32 +80,118 @@ export default function JudgesPage() {
       const data = await response.json();
       setJudges(data.users || []);
     } catch (error) {
-      setError(error instanceof Error ? error.message : '获取评委列表失败');
+      const errorMessage = error instanceof Error ? error.message : '获取评委列表失败';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteJudge = async (judgeId: string) => {
+  // 检查评委是否有评分记录
+  const checkJudgeScores = async (judgeId: string) => {
     try {
       setDeletingId(judgeId);
+      
       const response = await fetch(`/api/judges/${judgeId}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
-
+      
+      const data = await response.json();
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || '删除评委失败');
+        if (response.status === 401) {
+          toast.error('未授权访问，请重新登录');
+          router.push('/auth/login');
+          return false;
+        }
+        
+        if (data.hasScores && data.canForceDelete) {
+          // 设置删除错误信息，显示强制删除选项
+          setDeleteError({
+            hasScores: data.hasScores,
+            scoresCount: data.scoresCount,
+            canForceDelete: data.canForceDelete,
+          });
+          return true; // 有评分记录
+        } else {
+          toast.error(data.error || '检查评委评分记录失败');
+          return false;
+        }
       }
-
-      // 从列表中移除已删除的评委
-      setJudges(judges.filter(judge => judge.id !== judgeId));
-      setError(null);
+      
+      // 没有评分记录，可以直接删除
+      return false;
     } catch (error) {
-      setError(error instanceof Error ? error.message : '删除评委失败');
+      const errorMessage = error instanceof Error ? error.message : '检查评委评分记录失败';
+      toast.error(errorMessage);
+      return false;
     } finally {
       setDeletingId(null);
     }
+  };
+  
+  // 实际执行删除操作
+  const performDelete = async (judgeId: string, judgeName: string, force: boolean) => {
+    try {
+      setDeletingId(judgeId);
+      
+      const url = `/api/judges/${judgeId}${force ? '?force=true' : ''}`;
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || '删除评委失败');
+      }
+      
+      // 删除成功
+      setJudges(judges.filter(judge => judge.id !== judgeId));
+      toast.success(data.message || `评委 "${judgeName}" 已成功删除`);
+      setDeleteDialogOpen(false);
+      setJudgeToDelete(null);
+      setDeleteError(null);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '删除评委失败';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+  
+  // 处理删除按钮点击
+  const handleDeleteJudge = async (judgeId: string, judgeName: string, force: boolean = false) => {
+    if (force) {
+      // 强制删除，直接执行
+      await performDelete(judgeId, judgeName, true);
+    } else {
+      // 常规删除，先检查是否有评分记录
+      const hasScores = await checkJudgeScores(judgeId);
+      if (!hasScores) {
+        // 没有评分记录，执行删除
+        await performDelete(judgeId, judgeName, false);
+      }
+      // 如果有评分记录，checkJudgeScores已经设置了deleteError状态，会显示强制删除选项
+    }
+  };
+
+  const openDeleteDialog = (judge: Judge) => {
+    setJudgeToDelete(judge);
+    setDeleteError(null);
+    setDeleteDialogOpen(true);
+  };
+
+  const closeDeleteDialog = () => {
+    setDeleteDialogOpen(false);
+    setJudgeToDelete(null);
+    setDeleteError(null);
+    setDeletingId(null);
   };
 
   const filteredJudges = judges.filter(
@@ -107,7 +204,10 @@ export default function JudgesPage() {
     return (
       <div className="container mx-auto p-6">
         <div className="flex justify-center items-center h-64">
-          <div className="text-lg">加载中...</div>
+          <div className="flex items-center space-x-2">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <div className="text-lg">加载中...</div>
+          </div>
         </div>
       </div>
     );
@@ -131,8 +231,16 @@ export default function JudgesPage() {
       </div>
 
       {error && (
-        <div className="rounded-md bg-destructive/15 px-4 py-3 text-sm text-destructive mb-6">
-          {error}
+        <div className="rounded-md bg-destructive/15 px-4 py-3 text-sm text-destructive mb-6 flex items-center justify-between">
+          <span>{error}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setError(null)}
+            className="text-destructive hover:text-destructive/80"
+          >
+            ×
+          </Button>
         </div>
       )}
 
@@ -152,6 +260,18 @@ export default function JudgesPage() {
                 className="pl-8"
               />
             </div>
+            <Button
+              variant="outline"
+              onClick={fetchJudges}
+              disabled={loading}
+              size="sm"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                '刷新'
+              )}
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -228,43 +348,23 @@ export default function JudgesPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => router.push(`/dashboard/judges/${judge.id}/edit`)}
+                          disabled={deletingId === judge.id}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
                         
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={deletingId === judge.id}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>确认删除评委</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                您确定要删除评委 "{judge.name}" 吗？
-                                <br />
-                                <span className="text-red-600 font-medium">
-                                  此操作无法撤销，如果该评委已有评分记录，将无法删除。
-                                </span>
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>取消</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDeleteJudge(judge.id)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                disabled={deletingId === judge.id}
-                              >
-                                {deletingId === judge.id ? '删除中...' : '确认删除'}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openDeleteDialog(judge)}
+                          disabled={deletingId === judge.id}
+                        >
+                          {deletingId === judge.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -274,6 +374,117 @@ export default function JudgesPage() {
           )}
         </CardContent>
       </Card>
+
+            {/* 删除确认对话框 */}
+      {deleteDialogOpen && judgeToDelete && (
+        <AlertDialog open={deleteDialogOpen} onOpenChange={closeDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center">
+                <AlertTriangle className="h-5 w-5 text-destructive mr-2" />
+                确认删除评委
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                您确定要删除评委 "{judgeToDelete.name}" ({judgeToDelete.email}) 吗？
+                {!deleteError && (
+                  <>
+                    <br />
+                    <span className="text-red-600 font-medium">
+                      此操作无法撤销，如果该评委已有评分记录，将无法删除。
+                    </span>
+                  </>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            {/* 显示评分记录警告和强制删除选项 */}
+            {deleteError && (
+              <div className="space-y-4">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                  <div className="flex items-start">
+                    <div className="text-yellow-600 mr-2 mt-0.5">⚠️</div>
+                    <div>
+                      <p className="text-yellow-800 font-medium">该评委有评分记录</p>
+                      <p className="text-yellow-700 text-sm mt-1">
+                        该评委已有 {deleteError.scoresCount} 条评分记录，常规删除无法进行。
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                  <div className="flex items-start">
+                    <div className="text-red-600 mr-2 mt-0.5">🚨</div>
+                    <div>
+                      <p className="text-red-800 font-medium">强制删除选项</p>
+                      <p className="text-red-700 text-sm mt-1">
+                        您可以选择强制删除，这将同时删除该评委的所有评分记录。
+                        <br />
+                        <span className="font-medium">此操作不可逆转，请谨慎操作！</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <AlertDialogFooter>
+              <Button
+                variant="outline"
+                onClick={(e) => {
+                  e.preventDefault();
+                  closeDeleteDialog();
+                }}
+                disabled={deletingId === judgeToDelete.id}
+                className="mt-2 sm:mt-0"
+              >
+                取消
+              </Button>
+              
+              {!deleteError ? (
+                <Button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleDeleteJudge(judgeToDelete.id, judgeToDelete.name, false);
+                  }}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  disabled={deletingId === judgeToDelete.id}
+                >
+                  {deletingId === judgeToDelete.id ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      删除中...
+                    </>
+                  ) : (
+                    '确认删除'
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleDeleteJudge(judgeToDelete.id, judgeToDelete.name, true);
+                  }}
+                  className="bg-red-600 text-white hover:bg-red-700"
+                  disabled={deletingId === judgeToDelete.id}
+                >
+                  {deletingId === judgeToDelete.id ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      强制删除中...
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="h-4 w-4 mr-2" />
+                      强制删除
+                    </>
+                  )}
+                </Button>
+              )}
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 } 

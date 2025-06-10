@@ -741,9 +741,12 @@ export default function DisplayManagePage() {
 
             {/* 评委选择 */}
             {form.watch('showJudgeScores') && (
-              <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
+              <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">评委选择</Label>
+                  <div>
+                    <Label className="text-sm font-medium">评委选择</Label>
+                    <p className="text-xs text-muted-foreground mt-1">选择要在大屏幕上显示评分的评委</p>
+                  </div>
                   <Badge variant="secondary">
                     已选择 {form.watch('selectedJudgeIds').length}/{judges.length}
                   </Badge>
@@ -764,7 +767,9 @@ export default function DisplayManagePage() {
                         size="sm"
                         onClick={() => form.setValue('selectedJudgeIds', judges.map(j => j.id))}
                         disabled={form.watch('selectedJudgeIds').length === judges.length}
+                        className="flex-1"
                       >
+                        <Users className="h-4 w-4 mr-1" />
                         全选
                       </Button>
                       <Button
@@ -773,6 +778,7 @@ export default function DisplayManagePage() {
                         size="sm"
                         onClick={() => form.setValue('selectedJudgeIds', [])}
                         disabled={form.watch('selectedJudgeIds').length === 0}
+                        className="flex-1"
                       >
                         全不选
                       </Button>
@@ -781,7 +787,7 @@ export default function DisplayManagePage() {
                     {/* 评委列表 */}
                     <div className="space-y-2 max-h-48 overflow-y-auto">
                       {judges.map((judge) => (
-                        <div key={judge.id} className="flex items-center space-x-3 p-2 rounded hover:bg-muted/50">
+                        <div key={judge.id} className="flex items-center space-x-3 p-3 rounded hover:bg-muted/50 border border-transparent hover:border-border">
                           <input
                             type="checkbox"
                             id={`judge-${judge.id}`}
@@ -796,14 +802,19 @@ export default function DisplayManagePage() {
                             }}
                             className="rounded border-gray-300"
                           />
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
                             {judge.name.charAt(0)}
                           </div>
                           <label 
                             htmlFor={`judge-${judge.id}`}
-                            className="flex-1 text-sm font-medium cursor-pointer"
+                            className="flex-1 cursor-pointer"
                           >
-                            {judge.name}
+                            <div className="text-sm font-medium">
+                              {judge.name}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {judge.email}
+                            </div>
                           </label>
                         </div>
                       ))}
@@ -811,10 +822,25 @@ export default function DisplayManagePage() {
 
                     {/* 选择提示 */}
                     {form.watch('selectedJudgeIds').length === 0 && (
-                      <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
-                        <p className="text-yellow-800 text-xs">
-                          ⚠️ 未选择任何评委，大屏幕将不显示评分数据
-                        </p>
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                        <div className="flex items-center">
+                          <div className="text-yellow-600 mr-2">⚠️</div>
+                          <p className="text-yellow-800 text-sm">
+                            未选择任何评委，大屏幕将不显示评分数据
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* 选择统计 */}
+                    {form.watch('selectedJudgeIds').length > 0 && (
+                      <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                        <div className="flex items-center">
+                          <div className="text-green-600 mr-2">✓</div>
+                          <p className="text-green-800 text-sm">
+                            已选择 {form.watch('selectedJudgeIds').length} 位评委，大屏幕将显示他们的评分数据
+                          </p>
+                        </div>
                       </div>
                     )}
                   </>

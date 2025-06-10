@@ -3,57 +3,64 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { cleanupAuditLogs } from '@/lib/auditLogCleanup';
+import * as XLSX from 'xlsx';
 
 // 获取审计日志
 export async function GET(request: Request) {
   try {
+    // @ts-ignore
+    const session = await getServerSession(authOptions);
+    
+    if (!session || session.user.role !== 'ADMIN') {
+      return NextResponse.json(
+        { error: '权限不足' },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const search = searchParams.get('search');
     const action = searchParams.get('action');
     const userId = searchParams.get('userId');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
-    const search = searchParams.get('search');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
-    const exportCsv = searchParams.get('export') === 'true';
-    
+    const exportXlsx = searchParams.get('export') === 'true';
+
     const skip = (page - 1) * limit;
-    
-    let where: any = {};
-    
-    if (action) {
-      where.action = action;
-    }
-    
-    if (userId) {
-      where.userId = userId;
-    }
-    
-    if (startDate && endDate) {
-      where.timestamp = {
-        gte: new Date(startDate),
-        lte: new Date(endDate),
-      };
-    } else if (startDate) {
-      where.timestamp = {
-        gte: new Date(startDate),
-      };
-    } else if (endDate) {
-      where.timestamp = {
-        lte: new Date(endDate),
-      };
-    }
-    
-    // 搜索功能 - 搜索操作类型和目标ID
+
+    // 构建查询条件
+    const where: any = {};
+
     if (search) {
       where.OR = [
         { action: { contains: search, mode: 'insensitive' } },
-        { targetId: { contains: search, mode: 'insensitive' } },
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
       ];
+    }
+
+    if (action) {
+      where.action = action;
+    }
+
+    if (userId) {
+      where.userId = userId;
+    }
+
+    if (startDate || endDate) {
+      where.timestamp = {};
+      if (startDate) {
+        where.timestamp.gte = new Date(startDate);
+      }
+      if (endDate) {
+        where.timestamp.lte = new Date(endDate);
+      }
     }
     
     // 如果是导出请求，获取所有匹配的数据
-    if (exportCsv) {
+    if (exportXlsx) {
       const logs = await prisma.auditLog.findMany({
         where,
         include: {
@@ -71,20 +78,50 @@ export async function GET(request: Request) {
         },
       });
       
-      // 生成CSV格式
-      const csvHeaders = 'Timestamp,User Name,User Email,Action,Target ID,Details\n';
-      const csvRows = logs.map(log => {
+      // 创建Excel数据数组
+      const excelData = [];
+      
+      // 添加标题行
+      excelData.push(['时间', '用户姓名', '用户邮箱', '操作类型', '目标ID', '详细信息']);
+      
+      // 添加数据行
+      logs.forEach(log => {
         const timestamp = new Date(log.timestamp).toLocaleString('zh-CN');
-        const details = log.details ? JSON.stringify(log.details).replace(/"/g, '""') : '';
-        return `"${timestamp}","${log.user.name}","${log.user.email}","${log.action}","${log.targetId || ''}","${details}"`;
-      }).join('\n');
+        const details = log.details ? JSON.stringify(log.details) : '';
+        
+        excelData.push([
+          timestamp,
+          log.user.name,
+          log.user.email,
+          log.action,
+          log.targetId || '',
+          details
+        ]);
+      });
+
+      // 创建工作簿和工作表
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.aoa_to_sheet(excelData);
       
-      const csv = csvHeaders + csvRows;
+      // 设置列宽
+      worksheet['!cols'] = [
+        { wch: 18 }, // 时间
+        { wch: 15 }, // 用户姓名
+        { wch: 25 }, // 用户邮箱
+        { wch: 12 }, // 操作类型
+        { wch: 20 }, // 目标ID
+        { wch: 40 }  // 详细信息
+      ];
       
-      return new NextResponse(csv, {
+      XLSX.utils.book_append_sheet(workbook, worksheet, '审计日志');
+
+      const fileName = `audit-logs-${new Date().toISOString().split('T')[0]}.xlsx`;
+      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+      
+      return new NextResponse(buffer, {
         headers: {
-          'Content-Type': 'text/csv',
-          'Content-Disposition': `attachment; filename="audit-logs-${new Date().toISOString().split('T')[0]}.csv"`,
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
         },
       });
     }

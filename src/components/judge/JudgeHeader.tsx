@@ -20,7 +20,10 @@ interface JudgeHeaderProps {
   title?: string;
 }
 
-export function JudgeHeader({ showBackButton = false, title = "评委打分系统" }: JudgeHeaderProps) {
+export function JudgeHeader({ 
+  showBackButton = false, 
+  title = "评委打分系统" 
+}: JudgeHeaderProps) {
   const { data: session } = useSession();
   const router = useRouter();
 

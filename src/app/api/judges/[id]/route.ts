@@ -185,6 +185,10 @@ export async function DELETE(
 
     const params = await context.params;
     
+    // 从URL查询参数获取强制删除标志
+    const { searchParams } = new URL(request.url);
+    const force = searchParams.get('force') === 'true';
+    
     // 检查评委是否存在
     const existingJudge = await prisma.user.findUnique({
       where: {
@@ -206,33 +210,63 @@ export async function DELETE(
       where: { judgeId: params.id },
     });
 
-    if (scoresCount > 0) {
+    // 如果有评分记录且不是强制删除，则返回错误
+    if (scoresCount > 0 && !force) {
       return NextResponse.json(
-        { error: '该评委已有评分记录，无法删除' },
+        { 
+          error: '该评委已有评分记录，无法删除',
+          hasScores: true,
+          scoresCount: scoresCount,
+          canForceDelete: true
+        },
         { status: 400 }
       );
     }
 
-    // 软删除评委（标记为已删除，而不是物理删除）
-    await prisma.user.update({
-      where: { id: params.id },
-      data: { isDeleted: true },
+    // 使用事务进行删除操作
+    const result = await prisma.$transaction(async (tx) => {
+      let deletedScoresCount = 0;
+      
+      // 如果是强制删除且有评分记录，先删除所有相关评分
+      if (force && scoresCount > 0) {
+        const deleteScoresResult = await tx.score.deleteMany({
+          where: { judgeId: params.id },
+        });
+        deletedScoresCount = deleteScoresResult.count;
+      }
+
+      // 软删除评委（标记为已删除，而不是物理删除）
+      await tx.user.update({
+        where: { id: params.id },
+        data: { isDeleted: true },
+      });
+
+      return { deletedScoresCount };
     });
 
     // 记录审计日志
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
-        action: 'DELETE_JUDGE',
+        action: force ? 'FORCE_DELETE_JUDGE' : 'DELETE_JUDGE',
         targetId: params.id,
         details: {
           judgeName: existingJudge.name,
           judgeEmail: existingJudge.email,
+          forceDelete: force,
+          deletedScoresCount: result.deletedScoresCount,
+          originalScoresCount: scoresCount,
         },
       },
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ 
+      success: true,
+      message: force && result.deletedScoresCount > 0 
+        ? `成功删除评委及其 ${result.deletedScoresCount} 条评分记录`
+        : '成功删除评委',
+      deletedScoresCount: result.deletedScoresCount
+    });
   } catch (error) {
     console.error('Error deleting judge:', error);
     return NextResponse.json(

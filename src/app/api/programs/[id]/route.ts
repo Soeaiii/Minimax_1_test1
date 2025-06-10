@@ -112,14 +112,54 @@ export async function PUT(
     // 如果需要更新参与者关联，单独处理
     if (participantIds && Array.isArray(participantIds)) {
       try {
-        // 先清除现有关联，再建立新关联
-        await prisma.program.update({
-          where: { id },
-          data: {
-            participants: {
-              set: participantIds.map((participantId: string) => ({ id: participantId })),
-            },
-          },
+        await prisma.$transaction(async (tx) => {
+          // 获取当前的参与者关联
+          const currentProgram = await tx.program.findUnique({
+            where: { id },
+            select: { participantIds: true }
+          });
+          
+          const currentParticipantIds = currentProgram?.participantIds || [];
+          
+          // 找出要移除的参与者
+          const toRemove = currentParticipantIds.filter(pid => !participantIds.includes(pid));
+          // 找出要添加的参与者
+          const toAdd = participantIds.filter(pid => !currentParticipantIds.includes(pid));
+          
+          // 移除不再关联的参与者
+          for (const participantId of toRemove) {
+            await tx.participant.update({
+              where: { id: participantId },
+              data: {
+                programIds: {
+                  set: (await tx.participant.findUnique({
+                    where: { id: participantId },
+                    select: { programIds: true }
+                  }))?.programIds.filter(pid => pid !== id) || []
+                }
+              }
+            });
+          }
+          
+          // 添加新的参与者关联
+          for (const participantId of toAdd) {
+            await tx.participant.update({
+              where: { id: participantId },
+              data: {
+                programIds: {
+                  push: id
+                }
+              }
+            });
+          }
+          
+          // 更新节目的participantIds
+          await tx.program.update({
+            where: { id },
+            data: {
+              participantIds: participantIds
+            }
+          });
         });
       } catch (participantError) {
         console.error('Error updating participants:', participantError);

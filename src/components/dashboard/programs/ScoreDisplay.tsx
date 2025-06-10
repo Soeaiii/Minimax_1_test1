@@ -1,14 +1,22 @@
 'use client';
 
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Star, TrendingUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Star, TrendingUp, MoreHorizontal, Edit, Trash2, Plus } from 'lucide-react';
+import { toast } from 'sonner';
+import { ScoreEditDialog } from './ScoreEditDialog';
+import { useSession } from 'next-auth/react';
 
 interface Score {
   id: string;
   value: number;
   comment?: string | null;
+  judgeId: string;
   scoringCriteria: {
     id: string;
     name: string;
@@ -18,22 +26,62 @@ interface Score {
   createdAt: string | Date;
 }
 
-interface ScoreDisplayProps {
-  scores: Score[];
+interface Judge {
+  id: string;
+  name: string;
+  email: string;
 }
 
-export function ScoreDisplay({ scores }: ScoreDisplayProps) {
-  if (scores.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <Star className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-        <p className="text-muted-foreground">暂无评分数据</p>
-        <p className="text-sm text-muted-foreground mt-1">
-          评委尚未对此节目进行评分
-        </p>
-      </div>
-    );
-  }
+interface ScoringCriteria {
+  id: string;
+  name: string;
+  weight: number;
+  maxScore: number;
+}
+
+interface ScoreDisplayProps {
+  scores: Score[];
+  programId: string;
+  judges: Judge[];
+  criteria: ScoringCriteria[];
+  canEdit?: boolean;
+  onScoresUpdated: () => void;
+}
+
+export function ScoreDisplay({ scores, programId, judges, criteria, canEdit = false, onScoresUpdated }: ScoreDisplayProps) {
+  const { data: session } = useSession();
+  const [editingScore, setEditingScore] = useState<Score | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [deletingScore, setDeletingScore] = useState<Score | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  // 删除评分
+  const handleDeleteScore = async (score: Score) => {
+    try {
+      const response = await fetch(`/api/programs/${programId}/scores?scoreId=${score.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        toast.success('评分删除成功');
+        onScoresUpdated();
+      } else {
+        const error = await response.json();
+        toast.error(error.error || '删除失败');
+      }
+    } catch (error) {
+      toast.error('网络错误，请稍后重试');
+    } finally {
+      setShowDeleteDialog(false);
+      setDeletingScore(null);
+    }
+  };
+
+  // 获取评委名称
+  const getJudgeName = (judgeId: string) => {
+    const judge = judges.find(j => j.id === judgeId);
+    return judge ? judge.name : `评委 ${judgeId.slice(-4)}`;
+  };
 
   // 按评分标准分组
   const scoresByCriteria = scores.reduce((acc, score) => {
@@ -64,7 +112,7 @@ export function ScoreDisplay({ scores }: ScoreDisplayProps) {
 
   return (
     <div className="space-y-6">
-      {/* 总分显示 */}
+      {/* 总分显示 - 始终显示 */}
       <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
@@ -75,97 +123,191 @@ export function ScoreDisplay({ scores }: ScoreDisplayProps) {
               <div>
                 <h3 className="text-lg font-semibold">总加权分数</h3>
                 <p className="text-sm text-muted-foreground">
-                  基于所有评分标准的加权平均分
+                  {scores.length > 0 ? '基于所有评分标准的加权平均分' : '暂无评分数据'}
                 </p>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-3xl font-bold text-blue-600">
-                {totalWeightedScore.toFixed(2)}
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <div className="text-3xl font-bold text-blue-600">
+                  {scores.length > 0 ? totalWeightedScore.toFixed(2) : '0.00'}
+                </div>
+                <div className="text-sm text-muted-foreground">分</div>
               </div>
-              <div className="text-sm text-muted-foreground">分</div>
+              {canEdit && (
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    setEditingScore(null);
+                    setShowEditDialog(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  添加评分
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* 各评分标准详情 */}
-      <div className="grid gap-4">
-        {Object.entries(scoresByCriteria).map(([criteriaId, criteriaScores]) => {
-          const criteria = criteriaScores[0].scoringCriteria;
-          const stats = getStatistics(criteriaScores);
-          const percentage = (stats.average / criteria.maxScore) * 100;
+      {/* 如果没有评分，显示提示信息 */}
+      {scores.length === 0 ? (
+        <Card>
+          <CardContent className="text-center py-8">
+            <Star className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground mb-2">暂无评分数据</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              评委尚未对此节目进行评分
+            </p>
+            {canEdit && (
+              <Button 
+                onClick={() => {
+                  setEditingScore(null);
+                  setShowEditDialog(true);
+                }}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                开始评分
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        /* 各评分标准详情 */
+        <div className="grid gap-4">
+          {Object.entries(scoresByCriteria).map(([criteriaId, criteriaScores]) => {
+            const criteriaInfo = criteriaScores[0].scoringCriteria;
+            const stats = getStatistics(criteriaScores);
 
-          return (
-            <Card key={criteriaId}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-base">{criteria.name}</CardTitle>
-                    <CardDescription>
-                      权重: {criteria.weight} • 满分: {criteria.maxScore} • 
-                      {stats.count} 位评委评分
-                    </CardDescription>
+            return (
+              <Card key={criteriaId}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-base">{criteriaInfo.name}</CardTitle>
+                      <CardDescription>
+                        权重: {criteriaInfo.weight} • 满分: {criteriaInfo.maxScore} • 
+                        {stats.count} 位评委评分
+                      </CardDescription>
+                    </div>
+                    <Badge variant="secondary">
+                      平均: {stats.average.toFixed(2)}
+                    </Badge>
                   </div>
-                  <Badge variant="secondary">
-                    {stats.average.toFixed(2)} / {criteria.maxScore}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* 进度条 */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>平均分</span>
-                    <span>{percentage.toFixed(1)}%</span>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* 统计信息 */}
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="text-center">
+                      <div className="font-medium text-green-600">{stats.maxValue}</div>
+                      <div className="text-muted-foreground">最高分</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-medium">{stats.average.toFixed(2)}</div>
+                      <div className="text-muted-foreground">平均分</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-medium text-orange-600">{stats.minValue}</div>
+                      <div className="text-muted-foreground">最低分</div>
+                    </div>
                   </div>
-                  <Progress value={percentage} className="h-2" />
-                </div>
 
-                {/* 统计信息 */}
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div className="text-center">
-                    <div className="font-medium text-green-600">{stats.maxValue}</div>
-                    <div className="text-muted-foreground">最高分</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-medium">{stats.average.toFixed(2)}</div>
-                    <div className="text-muted-foreground">平均分</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-medium text-orange-600">{stats.minValue}</div>
-                    <div className="text-muted-foreground">最低分</div>
-                  </div>
-                </div>
-
-                {/* 各评委评分详情 */}
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm">评委评分详情</h4>
-                  <div className="grid gap-2">
-                    {criteriaScores.map((score, index) => (
-                      <div key={score.id} className="flex items-center justify-between p-2 bg-muted rounded">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium">评委 {index + 1}</span>
-                          {score.comment && (
-                            <span className="text-xs text-muted-foreground">
-                              "{score.comment.substring(0, 30)}{score.comment.length > 30 ? '...' : ''}"
-                            </span>
+                  {/* 各评委评分详情 */}
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">评委评分详情</h4>
+                    <div className="grid gap-2">
+                      {criteriaScores.map((score) => (
+                        <div key={score.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm font-medium">{getJudgeName(score.judgeId)}</span>
+                              <Badge variant="default">
+                                {score.value}
+                              </Badge>
+                            </div>
+                            {score.comment && (
+                              <p className="text-xs text-muted-foreground">
+                                "{score.comment}"
+                              </p>
+                            )}
+                          </div>
+                          {canEdit && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setEditingScore(score);
+                                    setShowEditDialog(true);
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  编辑评分
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={() => {
+                                    setDeletingScore(score);
+                                    setShowDeleteDialog(true);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  删除评分
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           )}
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant={score.value >= criteria.maxScore * 0.8 ? 'default' : 'secondary'}>
-                            {score.value}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 评分编辑对话框 */}
+      <ScoreEditDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        programId={programId}
+        score={editingScore}
+        onScoreUpdated={() => {
+          onScoresUpdated();
+          setEditingScore(null);
+        }}
+        judges={judges}
+        criteria={criteria}
+      />
+
+      {/* 删除确认对话框 */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除评分</AlertDialogTitle>
+            <AlertDialogDescription>
+              您确定要删除 {deletingScore && getJudgeName(deletingScore.judgeId)} 对 "{deletingScore?.scoringCriteria.name}" 的评分吗？
+              此操作无法撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingScore && handleDeleteScore(deletingScore)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 } 
