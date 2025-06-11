@@ -94,6 +94,7 @@ interface DisplaySettings {
   averageScoreColor?: string;
   programInfoColor?: string;
   selectedJudgeIds?: string[];
+  selectedParticipantFieldNames?: string[];
   // 评委卡片大小设置
   judgeCardWidth?: number;
   judgeCardPadding?: number;
@@ -109,6 +110,12 @@ interface DisplaySettings {
     filename: string;
     path: string;
   };
+  participantLabelFontSize?: number;
+  participantValueFontSize?: number;
+  participantCardPadding?: number;
+  participantCardGap?: number;
+  participantCardRowGap?: number;
+  averageScoreFontSize?: number;
 }
 
 interface DisplayData {
@@ -143,6 +150,7 @@ type FormValues = {
   autoRefresh: boolean;
   refreshInterval: number;
   selectedJudgeIds: string[];
+  selectedParticipantFieldNames: string[];
   // 评委卡片大小设置
   judgeCardWidth: number;
   judgeCardPadding: number;
@@ -153,6 +161,12 @@ type FormValues = {
   showBackgroundOverlay: boolean;
   overlayColor: string;
   overlayOpacity: number;
+  participantLabelFontSize: number;
+  participantValueFontSize: number;
+  participantCardPadding: number;
+  participantCardGap: number;
+  participantCardRowGap: number;
+  averageScoreFontSize: number;
 };
 
 export default function DisplayManagePage() {
@@ -172,6 +186,8 @@ export default function DisplayManagePage() {
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [judges, setJudges] = useState<Judge[]>([]);
   const [loadingJudges, setLoadingJudges] = useState(false);
+  const [customFieldDefs, setCustomFieldDefs] = useState<{ name: string }[]>([]);
+  const [loadingCustomFields, setLoadingCustomFields] = useState(false);
 
   const form = useForm<FormValues>({
     defaultValues: {
@@ -191,6 +207,7 @@ export default function DisplayManagePage() {
       autoRefresh: true,
       refreshInterval: 5,
       selectedJudgeIds: [],
+      selectedParticipantFieldNames: [],
       judgeCardWidth: 288,
       judgeCardPadding: 32,
       judgeCardGap: 40,
@@ -200,6 +217,12 @@ export default function DisplayManagePage() {
       showBackgroundOverlay: true,
       overlayColor: '#000000',
       overlayOpacity: 0.4,
+      participantLabelFontSize: 16,
+      participantValueFontSize: 14,
+      participantCardPadding: 20,
+      participantCardGap: 4,
+      participantCardRowGap: 32,
+      averageScoreFontSize: 192,
     },
   });
 
@@ -248,6 +271,7 @@ export default function DisplayManagePage() {
         autoRefresh: data.settings.autoRefresh ?? true,
         refreshInterval: data.settings.refreshInterval || 5,
         selectedJudgeIds: data.settings.selectedJudgeIds || [],
+        selectedParticipantFieldNames: data.settings.selectedParticipantFieldNames || [],
         judgeCardWidth: data.settings.judgeCardWidth || 288,
         judgeCardPadding: data.settings.judgeCardPadding || 32,
         judgeCardGap: data.settings.judgeCardGap || 40,
@@ -257,6 +281,12 @@ export default function DisplayManagePage() {
         showBackgroundOverlay: data.settings.showBackgroundOverlay ?? true,
         overlayColor: data.settings.overlayColor || '#000000',
         overlayOpacity: data.settings.overlayOpacity ?? 0.4,
+        participantLabelFontSize: data.settings.participantLabelFontSize || 16,
+        participantValueFontSize: data.settings.participantValueFontSize || 14,
+        participantCardPadding: data.settings.participantCardPadding || 20,
+        participantCardGap: data.settings.participantCardGap || 4,
+        participantCardRowGap: data.settings.participantCardRowGap || 32,
+        averageScoreFontSize: data.settings.averageScoreFontSize || 192,
       });
 
       setError(null);
@@ -304,9 +334,25 @@ export default function DisplayManagePage() {
     }
   };
 
+  const fetchCustomFields = async () => {
+    try {
+      setLoadingCustomFields(true);
+      const res = await fetch(`/api/competitions/${competitionId}/custom-fields`);
+      if (!res.ok) throw new Error('获取自定义字段失败');
+      const data = await res.json();
+      const defs = data.competition.customFieldDefinitions ? JSON.parse(data.competition.customFieldDefinitions) : [];
+      setCustomFieldDefs(defs);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingCustomFields(false);
+    }
+  };
+
   useEffect(() => {
     fetchDisplayData();
     fetchJudges();
+    fetchCustomFields();
   }, [competitionId]);
 
   const onSubmit = async (data: FormValues) => {
@@ -854,6 +900,109 @@ export default function DisplayManagePage() {
           </CardContent>
         </Card>
 
+        {/* 选手信息字段选择 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>选手信息字段显示</CardTitle>
+            <CardDescription>选择要在大屏幕选手信息卡片中显示的自定义字段</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingCustomFields ? (
+              <p className="text-sm">加载自定义字段...</p>
+            ) : customFieldDefs.length === 0 ? (
+              <p className="text-sm text-muted-foreground">暂无自定义字段</p>
+            ) : (
+              <div className="space-y-2">
+                {customFieldDefs.map((field: any) => (
+                  <div key={field.name} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id={`field-${field.name}`}
+                      checked={form.watch('selectedParticipantFieldNames').includes(field.name)}
+                      onChange={(e) => {
+                        const current = form.watch('selectedParticipantFieldNames');
+                        if (e.target.checked) {
+                          form.setValue('selectedParticipantFieldNames', [...current, field.name]);
+                        } else {
+                          form.setValue('selectedParticipantFieldNames', current.filter((n) => n !== field.name));
+                        }
+                      }}
+                    />
+                    <label htmlFor={`field-${field.name}`} className="text-sm cursor-pointer">
+                      {field.name}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 选手信息卡片设置 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>选手信息卡片设置</CardTitle>
+            <CardDescription>调整底部选手信息卡片的样式</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="participantLabelFontSize">标签字体大小 (px)</Label>
+                <Input
+                  id="participantLabelFontSize"
+                  type="number"
+                  {...form.register('participantLabelFontSize', { valueAsNumber: true })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="participantValueFontSize">值字体大小 (px)</Label>
+                <Input
+                  id="participantValueFontSize"
+                  type="number"
+                  {...form.register('participantValueFontSize', { valueAsNumber: true })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="participantCardPadding">卡片内边距 (px)</Label>
+                <Input
+                  id="participantCardPadding"
+                  type="number"
+                  {...form.register('participantCardPadding', { valueAsNumber: true })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="participantCardGap">行间距 (px)</Label>
+                <Input
+                  id="participantCardGap"
+                  type="number"
+                  {...form.register('participantCardGap', { valueAsNumber: true })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="participantCardRowGap">行间距 (px)</Label>
+                <Input
+                  id="participantCardRowGap"
+                  type="number"
+                  {...form.register('participantCardRowGap', { valueAsNumber: true })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="averageScoreFontSize">平均分字体大小 (px)</Label>
+                <Input
+                  id="averageScoreFontSize"
+                  type="number"
+                  {...form.register('averageScoreFontSize', { valueAsNumber: true })}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* 评委卡片设置 */}
         <Card>
           <CardHeader>
@@ -867,8 +1016,6 @@ export default function DisplayManagePage() {
                 <Input
                   id="judgeCardWidth"
                   type="number"
-                  min="200"
-                  max="600"
                   {...form.register('judgeCardWidth', { valueAsNumber: true })}
                 />
               </div>
@@ -878,8 +1025,6 @@ export default function DisplayManagePage() {
                 <Input
                   id="judgeCardPadding"
                   type="number"
-                  min="16"
-                  max="100"
                   {...form.register('judgeCardPadding', { valueAsNumber: true })}
                 />
               </div>
@@ -889,8 +1034,6 @@ export default function DisplayManagePage() {
                 <Input
                   id="judgeCardGap"
                   type="number"
-                  min="20"
-                  max="150"
                   {...form.register('judgeCardGap', { valueAsNumber: true })}
                 />
               </div>
@@ -900,8 +1043,6 @@ export default function DisplayManagePage() {
                 <Input
                   id="judgeAvatarSize"
                   type="number"
-                  min="100"
-                  max="400"
                   {...form.register('judgeAvatarSize', { valueAsNumber: true })}
                 />
               </div>
@@ -911,8 +1052,6 @@ export default function DisplayManagePage() {
                 <Input
                   id="judgeNameFontSize"
                   type="number"
-                  min="14"
-                  max="50"
                   {...form.register('judgeNameFontSize', { valueAsNumber: true })}
                 />
               </div>
@@ -922,8 +1061,6 @@ export default function DisplayManagePage() {
                 <Input
                   id="judgeScoreFontSize"
                   type="number"
-                  min="24"
-                  max="150"
                   {...form.register('judgeScoreFontSize', { valueAsNumber: true })}
                 />
               </div>

@@ -58,6 +58,12 @@ export async function GET(
           judgeScoreColor: '#1f2937',
           averageScoreColor: '#ffffff',
           programInfoColor: '#ffffff',
+          participantLabelFontSize: 56,
+          participantValueFontSize: 56,
+          participantCardPadding: 48,
+          participantCardGap: 16,
+          participantCardRowGap: 32,
+          averageScoreFontSize: 192,
         },
         include: {
           backgroundImage: {
@@ -98,7 +104,11 @@ export async function GET(
         where: {
           id: displaySettings.currentProgramId,
         },
-        include: {
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          order: true,
           participants: {
             select: {
               id: true,
@@ -106,6 +116,7 @@ export async function GET(
               team: true,
             },
           },
+          customFields: true,
         },
       });
     }
@@ -209,6 +220,7 @@ export async function GET(
             team: true,
           },
         },
+        customFields: true,
       },
       orderBy: {
         order: 'asc',

@@ -121,96 +121,64 @@ export async function GET(request: Request) {
 }
 
 // 创建新节目
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    // @ts-ignore 暂时忽略类型错误
     const session = await getServerSession(authOptions);
-    
-    // 检查用户是否已登录
     if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "未授权" }, { status: 401 });
     }
-    
-    const body = await request.json();
-    
-    // 验证必要字段
-    if (!body.name || !body.competitionId || !body.order || !body.currentStatus) {
-      return NextResponse.json(
-        { error: '缺少必要字段' },
-        { status: 400 }
-      );
-    }
-    
-    // 检查用户是否有权限修改该比赛
+
+    const body = await req.json();
+    const {
+      name,
+      description,
+      competitionId,
+      participantIds,
+      order,
+      currentStatus,
+      customFields,
+    } = body;
+
+    // 验证比赛存在
     const competition = await prisma.competition.findUnique({
-      where: { id: body.competitionId },
+      where: { id: competitionId },
     });
-    
     if (!competition) {
-      return NextResponse.json(
-        { error: '比赛不存在' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "比赛不存在" }, { status: 404 });
     }
-    
-    // 只有管理员或者比赛的组织者可以添加节目
-    if (session.user.role !== 'ADMIN' && competition.organizerId !== session.user.id) {
-      return NextResponse.json(
-        { error: '您没有权限为此比赛添加节目' },
-        { status: 403 }
-      );
-    }
-    
-    // 创建节目并建立参与者关联
-    const program = await prisma.$transaction(async (tx) => {
-      // 先创建节目
-      const newProgram = await tx.program.create({
-        data: {
-          name: body.name,
-          description: body.description,
-          order: body.order,
-          currentStatus: body.currentStatus,
-          competitionId: body.competitionId,
-          participantIds: body.participantIds || [],
-        },
+
+    // 验证参赛者存在
+    if (participantIds && participantIds.length > 0) {
+      const participants = await prisma.participant.findMany({
+        where: { id: { in: participantIds } },
       });
-      
-      // 如果有参与者，建立关联
-      if (body.participantIds && body.participantIds.length > 0) {
-        // 更新参与者的programIds数组
-        for (const participantId of body.participantIds) {
-          await tx.participant.update({
-            where: { id: participantId },
-            data: {
-              programIds: {
-                push: newProgram.id
-              }
-            }
-          });
-        }
+      if (participants.length !== participantIds.length) {
+        return NextResponse.json({ error: "一个或多个参赛者不存在" }, { status: 404 });
       }
-      
-      return newProgram;
-    });
-    
-    // 记录审计日志
-    await prisma.auditLog.create({
+    }
+
+    // 创建节目
+    const program = await prisma.program.create({
       data: {
-        userId: session.user.id,
-        action: 'CREATE_PROGRAM',
-        targetId: program.id,
-        details: { programData: body },
+        name,
+        description,
+        competitionId,
+        participantIds,
+        order: order || 0,
+        currentStatus: currentStatus || "WAITING",
+        customFields, // 存储自定义字段
+      },
+      include: {
+        competition: true,
+        participants: true,
       },
     });
-    
-    return NextResponse.json(program, { status: 201 });
+
+    return NextResponse.json({ program });
   } catch (error) {
-    console.error('Error creating program:', error);
+    console.error("Error creating program:", error);
     return NextResponse.json(
-      { error: '创建节目失败' },
+      { error: "创建节目失败" },
       { status: 500 }
     );
   }

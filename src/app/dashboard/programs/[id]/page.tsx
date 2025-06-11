@@ -219,6 +219,22 @@ export default async function ProgramDetailPage({ params }: PageProps) {
         </CardContent>
       </Card>
 
+      {/* 自定义字段区域 */}
+      {/* @ts-ignore 忽略类型检查，因为customFields是动态添加的 */}
+      {program.customFields && Object.keys((program as any).customFields).length > 0 && (
+        <div className="mt-6">
+          <h3 className="text-xl font-semibold mb-4">自定义字段</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {Object.entries((program as any).customFields).map(([key, value]) => (
+              <div key={key} className="border p-4 rounded-lg">
+                <h4 className="font-medium text-sm text-muted-foreground">{key}</h4>
+                <p>{value as string}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 标签页内容 */}
       <Tabs defaultValue="participants" className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">

@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ChevronLeft, Edit, Archive, Monitor, Trash2 } from "lucide-react";
+import { ChevronLeft, Edit, Archive, Monitor, Trash2, Settings, ExternalLink } from "lucide-react";
 import { CompetitionDetail } from "@/components/dashboard/competitions/CompetitionDetail";
 import { CompetitionTabs } from "@/components/dashboard/competitions/CompetitionTabs";
 import {
@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { format } from 'date-fns';
 
 interface Competition {
   id: string;
@@ -58,6 +59,8 @@ interface Competition {
       name: string;
     };
   }>;
+  startTime?: string;
+  endTime?: string;
 }
 
 export default function CompetitionDetailPage() {
@@ -271,18 +274,34 @@ export default function CompetitionDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center">
-          <Button variant="ghost" size="sm" asChild className="mr-2">
-            <Link href="/dashboard/competitions">
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              返回
+    <div className="container py-10">
+      <div className="flex justify-between items-start mb-8">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">{competition.name}</h1>
+          <p className="text-muted-foreground">
+            {competition.startTime ? format(new Date(competition.startTime), 'yyyy-MM-dd') : '未设置'} ~ 
+            {competition.endTime ? format(new Date(competition.endTime), 'yyyy-MM-dd') : '未设置'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" asChild>
+            <Link href={`/dashboard/competitions/${competition.id}/edit`}>
+              <Edit className="h-4 w-4 mr-2" />
+              编辑比赛
             </Link>
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">{competition.name}</h1>
-        </div>
-        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href={`/dashboard/competitions/${competition.id}/custom-fields/manage`}>
+              <Settings className="h-4 w-4 mr-2" />
+              自定义字段
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href={`/display/${competition.id}`} target="_blank">
+              <ExternalLink className="h-4 w-4 mr-2" />
+              打开显示
+            </Link>
+          </Button>
           <Button variant="outline" size="sm" asChild>
             <Link href={`/dashboard/display/${id}`}>
               <Monitor className="h-4 w-4 mr-2" />
@@ -292,13 +311,6 @@ export default function CompetitionDetailPage() {
           
           {canModify(competition) && (
             <>
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/dashboard/competitions/${id}/edit`}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  编辑
-                </Link>
-              </Button>
-              
               {competition.status !== 'ARCHIVED' && (
                 <Button 
                   variant="outline" 

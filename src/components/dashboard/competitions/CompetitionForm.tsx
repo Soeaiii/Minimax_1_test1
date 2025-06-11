@@ -17,6 +17,7 @@ import { Calendar } from '@/components/ui/calendar';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const competitionFormSchema = z.object({
   name: z.string().min(2, { message: '比赛名称至少需要2个字符' }),
@@ -33,9 +34,18 @@ const competitionFormSchema = z.object({
       maxScore: z.number().min(1, { message: '最高分必须大于等于1' }),
     })
   ).min(1, { message: '至少需要一个评分标准' }),
+  customFieldDefinitions: z.array(
+    z.object({
+      name: z.string().min(1, { message: '字段名称不能为空' }),
+      type: z.enum(['text', 'number', 'select'], { required_error: '请选择字段类型' }),
+      required: z.boolean(),
+      options: z.array(z.string()).optional(),
+      placeholder: z.string().optional(),
+    })
+  ).optional(),
 });
 
-type CompetitionFormValues = z.infer<typeof competitionFormSchema>;
+export type CompetitionFormValues = z.infer<typeof competitionFormSchema>;
 
 interface ScoringCriteria {
   id?: string;
@@ -55,21 +65,31 @@ export function CompetitionForm({ initialData, isEditMode = false }: Competition
   const [scoringCriteria, setScoringCriteria] = useState<ScoringCriteria[]>(
     initialData?.scoringCriteria || []
   );
+  const [customFieldDefinitions, setCustomFieldDefinitions] = useState<Array<{
+    name: string;
+    type: 'text' | 'number' | 'select';
+    required: boolean;
+    options?: string[];
+    placeholder?: string;
+  }>>(
+    initialData?.customFieldDefinitions 
+      ? JSON.parse(initialData.customFieldDefinitions as string) 
+      : []
+  );
 
   // 设置表单默认值
   const defaultValues: Partial<CompetitionFormValues> = {
     name: initialData?.name || "",
     description: initialData?.description || "",
-    startTime: initialData?.startTime 
-      ? new Date(initialData.startTime)
-      : undefined,
-    endTime: initialData?.endTime 
-      ? new Date(initialData.endTime)
-      : undefined,
+    startTime: initialData?.startTime ? new Date(initialData.startTime) : new Date(),
+    endTime: initialData?.endTime ? new Date(initialData.endTime) : new Date(),
     status: initialData?.status || "PENDING",
     rankingUpdateMode: initialData?.rankingUpdateMode || "BATCH",
     organizerId: initialData?.organizerId || initialData?.organizer?.id || "",
     scoringCriteria: initialData?.scoringCriteria || [],
+    customFieldDefinitions: initialData?.customFieldDefinitions 
+      ? JSON.parse(initialData.customFieldDefinitions as string)
+      : []
   };
 
   // 输出初始数据，用于调试
@@ -157,12 +177,44 @@ export function CompetitionForm({ initialData, isEditMode = false }: Competition
     form.setValue('scoringCriteria', newCriteria as any);
   };
 
+  // 添加自定义字段定义
+  const addCustomField = () => {
+    const newFields = [
+      ...customFieldDefinitions,
+      { name: "", type: "text" as const, required: false, placeholder: "", options: [] },
+    ];
+    setCustomFieldDefinitions(newFields);
+    
+    // 更新表单中的字段定义
+    form.setValue('customFieldDefinitions', newFields);
+  };
+
+  // 移除自定义字段定义
+  const removeCustomField = (index: number) => {
+    const newFields = customFieldDefinitions.filter((_, i) => i !== index);
+    setCustomFieldDefinitions(newFields);
+    
+    // 更新表单中的字段定义
+    form.setValue('customFieldDefinitions', newFields);
+  };
+
+  // 更新自定义字段定义
+  const updateCustomField = (index: number, field: string, value: any) => {
+    const newFields = [...customFieldDefinitions];
+    newFields[index] = { ...newFields[index], [field]: value };
+    setCustomFieldDefinitions(newFields);
+    
+    // 更新表单中的字段定义
+    form.setValue('customFieldDefinitions', newFields);
+  };
+
   // 提交表单
   const onSubmit = async (data: CompetitionFormValues) => {
     // 检查表单数据
     console.log('提交表单:', {
       formData: data,
       scoringCriteria,
+      customFieldDefinitions,
       formValid: form.formState.isValid
     });
     
@@ -198,11 +250,11 @@ export function CompetitionForm({ initialData, isEditMode = false }: Competition
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
         scoringCriteria: scoringCriteria.map(criteria => ({
-          id: criteria.id, // 保留ID，对于更新操作很重要
           name: criteria.name,
           weight: criteria.weight,
           maxScore: criteria.maxScore
         })),
+        customFieldDefinitions: JSON.stringify(customFieldDefinitions),
       };
 
       console.log('提交表单数据:', formData);
@@ -571,6 +623,116 @@ export function CompetitionForm({ initialData, isEditMode = false }: Competition
               )}
             </div>
           )}
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium">节目自定义字段</h3>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addCustomField}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              添加字段
+            </Button>
+          </div>
+
+          <p className="text-sm text-muted-foreground mb-4">
+            定义所有节目共用的自定义字段，例如表演时长、道具需求等。这些字段将在节目表单中显示。
+          </p>
+
+          {customFieldDefinitions.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              暂无自定义字段，点击"添加字段"按钮创建
+            </p>
+          )}
+
+          {customFieldDefinitions.map((field, index) => (
+            <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center mb-4 border p-4 rounded-lg">
+              <div>
+                <label className="text-sm font-medium">
+                  字段名称 *
+                </label>
+                <Input
+                  value={field.name}
+                  onChange={(e) => updateCustomField(index, 'name', e.target.value)}
+                  placeholder="例如：表演时长"
+                  className="mt-1"
+                />
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">
+                  字段类型 *
+                </label>
+                <Select
+                  value={field.type}
+                  onValueChange={(value) => updateCustomField(index, 'type', value as 'text' | 'number' | 'select')}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="选择类型" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="text">文本</SelectItem>
+                    <SelectItem value="number">数字</SelectItem>
+                    <SelectItem value="select">选择项</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">
+                  提示文本
+                </label>
+                <Input
+                  value={field.placeholder || ''}
+                  onChange={(e) => updateCustomField(index, 'placeholder', e.target.value)}
+                  placeholder="请输入..."
+                  className="mt-1"
+                />
+              </div>
+              
+              <div>
+                <div className="flex items-center mt-4">
+                  <Checkbox
+                    id={`required-${index}`}
+                    checked={field.required}
+                    onCheckedChange={(checked) => updateCustomField(index, 'required', Boolean(checked))}
+                  />
+                  <label htmlFor={`required-${index}`} className="ml-2 text-sm">
+                    必填字段
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end items-end md:h-full">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeCustomField(index)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {field.type === 'select' && (
+                <div className="col-span-5 mt-2">
+                  <label className="text-sm font-medium">
+                    选项值（使用逗号分隔）
+                  </label>
+                  <Input
+                    value={(field.options || []).join(',')}
+                    onChange={(e) => updateCustomField(index, 'options', e.target.value.split(',').map(item => item.trim()))}
+                    placeholder="选项1,选项2,选项3"
+                    className="mt-1"
+                  />
+                </div>
+              )}
+            </div>
+          ))}
         </div>
 
         <div className="flex justify-end space-x-4">

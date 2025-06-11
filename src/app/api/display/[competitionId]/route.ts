@@ -58,6 +58,13 @@ export async function GET(
           judgeAvatarSize: 176,
           judgeNameFontSize: 20,
           judgeScoreFontSize: 36,
+          participantLabelFontSize: 56,
+          participantValueFontSize: 56,
+          participantCardPadding: 48,
+          participantCardGap: 16,
+          participantCardRowGap: 32,
+          averageScoreFontSize: 192,
+          selectedParticipantFieldNames: [],
         },
         include: {
           competition: {
@@ -142,12 +149,19 @@ export async function PUT(
         judgeAvatarSize: body.judgeAvatarSize,
         judgeNameFontSize: body.judgeNameFontSize,
         judgeScoreFontSize: body.judgeScoreFontSize,
+        participantLabelFontSize: body.participantLabelFontSize,
+        participantValueFontSize: body.participantValueFontSize,
         // 遮罩控制设置
         showBackgroundOverlay: body.showBackgroundOverlay,
         overlayColor: body.overlayColor,
         overlayOpacity: body.overlayOpacity,
         // 评委选择
         selectedJudgeIds: body.selectedJudgeIds,
+        selectedParticipantFieldNames: body.selectedParticipantFieldNames,
+        participantCardPadding: body.participantCardPadding,
+        participantCardGap: body.participantCardGap,
+        participantCardRowGap: body.participantCardRowGap,
+        averageScoreFontSize: body.averageScoreFontSize,
       },
       create: {
         competitionId: params.competitionId,
@@ -174,12 +188,19 @@ export async function PUT(
         judgeAvatarSize: body.judgeAvatarSize ?? 176,
         judgeNameFontSize: body.judgeNameFontSize ?? 20,
         judgeScoreFontSize: body.judgeScoreFontSize ?? 36,
+        participantLabelFontSize: body.participantLabelFontSize ?? 56,
+        participantValueFontSize: body.participantValueFontSize ?? 56,
         // 遮罩控制设置
         showBackgroundOverlay: body.showBackgroundOverlay ?? false,
         overlayColor: body.overlayColor ?? '#000000',
         overlayOpacity: body.overlayOpacity ?? 0.5,
         // 评委选择
         selectedJudgeIds: body.selectedJudgeIds ?? [],
+        selectedParticipantFieldNames: body.selectedParticipantFieldNames ?? [],
+        participantCardPadding: body.participantCardPadding ?? 48,
+        participantCardGap: body.participantCardGap ?? 16,
+        participantCardRowGap: body.participantCardRowGap ?? 32,
+        averageScoreFontSize: body.averageScoreFontSize ?? 192,
       },
       include: {
         competition: {

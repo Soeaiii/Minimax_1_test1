@@ -19,10 +19,13 @@ import {
   Download,
   Eye,
   Users,
-  Trophy
+  Trophy,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 interface ImportData {
   type: 'participants' | 'programs';
@@ -42,6 +45,7 @@ interface ExcelImportProps {
 interface Competition {
   id: string;
   name: string;
+  status: string;
 }
 
 interface Participant {
@@ -76,6 +80,16 @@ export function ExcelImport({ type, competitionId, onImportComplete }: ExcelImpo
     order: ['顺序', '序号', '排序', 'order', '编号'],
     participantNames: ['选手姓名', '参赛者', '表演者', 'participants', '选手']
   };
+
+  // 已知的自定义字段名称，方便识别
+  const knownCustomFields = [
+    '表演时长', '演出时长', '时长', 'duration', 
+    '道具需求', '道具', 'props',
+    '特殊要求', '要求', '备注', 'requirements', 'notes',
+    '音乐', '背景音乐', 'music',
+    '灯光', '灯光需求', 'lighting',
+    '舞台', '舞台要求', 'stage'
+  ];
 
   // 获取比赛列表
   const fetchCompetitions = async () => {
@@ -173,6 +187,28 @@ export function ExcelImport({ type, competitionId, onImportComplete }: ExcelImpo
       errors.push(`缺少必需列: ${missingColumns.join(', ')}`);
     }
 
+    // 处理自定义字段（对于节目类型）
+    let customFieldIndexes: Record<string, number> = {};
+    if (type === 'programs') {
+      // 找出所有不是标准字段的列，作为自定义字段
+      for (let i = 0; i < columns.length; i++) {
+        const colName = columns[i];
+        if (!colName || colName.trim() === '') continue;
+        
+        const isStandardColumn = Object.values(columnMapping).some(possibleNames => 
+          possibleNames.some(name => 
+            colName.toLowerCase().includes(name.toLowerCase()) ||
+            name.toLowerCase().includes(colName.toLowerCase())
+          )
+        );
+        
+        // 如果不是标准列，则作为自定义字段
+        if (!isStandardColumn) {
+          customFieldIndexes[colName] = i;
+        }
+      }
+    }
+
     rows.forEach((row, index) => {
       const rowData: any = { _rowIndex: index + 2 }; // +2 因为有标题行且从1开始计数
       let isValid = true;
@@ -181,6 +217,21 @@ export function ExcelImport({ type, competitionId, onImportComplete }: ExcelImpo
       // 映射数据
       for (const [key, columnIndex] of Object.entries(columnIndexes)) {
         rowData[key] = row[columnIndex];
+      }
+
+      // 处理自定义字段
+      if (type === 'programs' && Object.keys(customFieldIndexes).length > 0) {
+        const customFields: Record<string, string> = {};
+        for (const [fieldName, columnIndex] of Object.entries(customFieldIndexes)) {
+          const value = row[columnIndex];
+          if (value !== undefined && value !== null && value !== '') {
+            customFields[fieldName] = String(value);
+          }
+        }
+        
+        if (Object.keys(customFields).length > 0) {
+          rowData.customFields = customFields;
+        }
       }
 
       // 验证必需字段
@@ -330,58 +381,91 @@ export function ExcelImport({ type, competitionId, onImportComplete }: ExcelImpo
   };
 
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {type === 'participants' ? <Users className="h-5 w-5" /> : <Trophy className="h-5 w-5" />}
-            {type === 'participants' ? '批量导入选手' : '批量导入节目'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Alert>
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              请确保Excel文件格式正确。如有疑问，可下载模板文件参考。
-            </AlertDescription>
-          </Alert>
-
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={downloadTemplate}
-              className="flex-1"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              下载模板
-            </Button>
-            
-            <Button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
-              className="flex-1"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              {isUploading ? '解析中...' : '选择Excel文件'}
-            </Button>
+    <div className="space-y-6">
+      <div className="grid gap-6">
+        {isUploading ? (
+          <div className="flex items-center justify-center h-40">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <span className="ml-2">正在解析文件...</span>
           </div>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-
-          {isUploading && (
-            <div className="space-y-2">
-              <div className="text-sm text-muted-foreground">正在解析文件...</div>
-              <Progress value={50} />
+        ) : (
+          <>
+            <div>
+              <h3 className="text-lg font-medium mb-2">
+                {type === 'participants' ? '批量导入选手' : '批量导入节目'}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {type === 'participants' 
+                  ? '从Excel文件批量导入选手信息，支持姓名、简介、团队等字段'
+                  : '从Excel文件批量导入节目信息，支持节目名称、描述、顺序、选手姓名等字段'}
+              </p>
             </div>
-          )}
-        </CardContent>
-      </Card>
+
+            {/* 自定义字段信息提示 */}
+            {type === 'programs' && (
+              <div className="bg-muted/50 p-4 rounded-lg border">
+                <h4 className="text-sm font-semibold mb-2">支持自定义字段</h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  系统会自动识别除标准字段外的其他列作为节目的自定义字段。常见的自定义字段包括：
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {knownCustomFields.map((field, i) => (
+                    <Badge key={i} variant="outline" className="text-xs">
+                      {field}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <Button variant="outline" className="w-full" onClick={downloadTemplate}>
+                  <Download className="mr-2 h-4 w-4" />
+                  下载模板
+                </Button>
+              </div>
+              
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="file">选择Excel文件</Label>
+                <Input
+                  id="file"
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={handleFileSelect}
+                  ref={fileInputRef}
+                />
+              </div>
+
+              {type === 'programs' && (
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="competition">选择比赛</Label>
+                  <Select
+                    value={selectedCompetition}
+                    onValueChange={setSelectedCompetition}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择目标比赛" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {competitions.map((competition) => (
+                        <SelectItem 
+                          key={competition.id} 
+                          value={competition.id}
+                          disabled={competition.status === 'ARCHIVED'}
+                        >
+                          {competition.name}
+                          {competition.status === 'ARCHIVED' && ' (已归档)'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* 预览对话框 */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
@@ -426,25 +510,6 @@ export function ExcelImport({ type, competitionId, onImportComplete }: ExcelImpo
                     </ul>
                   </AlertDescription>
                 </Alert>
-              )}
-
-              {/* 比赛选择 (仅节目导入) */}
-              {type === 'programs' && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">选择目标比赛</label>
-                  <Select value={selectedCompetition} onValueChange={setSelectedCompetition}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="请选择比赛" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {competitions.map((competition) => (
-                        <SelectItem key={competition.id} value={competition.id}>
-                          {competition.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
               )}
 
               {/* 数据预览表格 */}
@@ -572,6 +637,6 @@ export function ExcelImport({ type, competitionId, onImportComplete }: ExcelImpo
           )}
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 } 

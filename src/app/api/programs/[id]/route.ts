@@ -68,6 +68,7 @@ export async function PUT(
       order,
       currentStatus,
       participantIds,
+      customFields,
     } = body;
     
     // 检查节目是否存在
@@ -94,15 +95,23 @@ export async function PUT(
       );
     }
     
-    // 简化更新，直接更新节目基本信息
+    // 构建更新数据
+    const updateData: any = {
+      ...(name && { name }),
+      ...(description !== undefined && { description }),
+      ...(order && { order }),
+      ...(currentStatus && { currentStatus }),
+    };
+    
+    // 如果有自定义字段，添加到更新数据中
+    if (customFields) {
+      updateData.customFields = customFields;
+    }
+    
+    // 更新节目基本信息
     const updatedProgram = await prisma.program.update({
       where: { id },
-      data: {
-        ...(name && { name }),
-        ...(description !== undefined && { description }),
-        ...(order && { order }),
-        ...(currentStatus && { currentStatus }),
-      },
+      data: updateData,
       include: {
         competition: true,
         participants: true,

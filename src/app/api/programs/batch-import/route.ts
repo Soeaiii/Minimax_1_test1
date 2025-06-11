@@ -8,6 +8,7 @@ interface ImportRow {
   description?: string;
   order?: number;
   participantNames?: string;
+  customFields?: Record<string, string>;
   _rowIndex: number;
 }
 
@@ -22,6 +23,7 @@ interface ProcessedRow {
   description?: string;
   order: number;
   participantNames: string[];
+  customFields?: Record<string, string>;
   _rowIndex: number;
 }
 
@@ -91,65 +93,46 @@ export async function POST(request: NextRequest) {
 
     let nextOrder = (lastProgram?.order || 0) + 1;
 
-    // 批量导入节目 - 优化版本
+    // 处理导入数据
     await prisma.$transaction(async (tx) => {
-      // 1. 预处理数据，验证必需字段并解析选手姓名
-      const validRows: ProcessedRow[] = [];
-      for (const row of data) {
-        if (!row.name || row.name.toString().trim() === '') {
-          failed.push({
-            row: row._rowIndex,
-            data: row,
-            error: '节目名称不能为空'
-          });
-          continue;
+      // 1. 预处理数据，标准化处理每行
+      const validRows: ProcessedRow[] = data.map(row => {
+        // 处理节目顺序
+        const order = row.order ? parseInt(String(row.order)) : nextOrder++;
+        
+        // 处理选手姓名，支持多种分隔符
+        let participantNames: string[] = [];
+        if (row.participantNames) {
+          participantNames = String(row.participantNames)
+            .split(/[,，、;；]/) // 支持逗号、顿号、分号作为分隔符
+            .map(name => name.trim())
+            .filter(Boolean);
         }
-
-        // 处理顺序
-        let programOrder = nextOrder;
-        if (row.order && !isNaN(Number(row.order))) {
-          programOrder = Number(row.order);
-        } else {
-          nextOrder++;
-        }
-
-        // 解析选手姓名
-        const participantNames = row.participantNames
-          ? row.participantNames
-              .toString()
-              .split(/[,，、]/) // 支持多种分隔符
-              .map(name => name.trim())
-              .filter(name => name.length > 0)
-          : [];
-
-        validRows.push({
-          name: row.name.toString().trim(),
-          description: row.description?.toString().trim() || undefined,
-          order: programOrder,
+        
+        return {
+          name: String(row.name).trim(),
+          description: row.description ? String(row.description) : undefined,
+          order,
           participantNames,
-          _rowIndex: row._rowIndex,
-        });
-      }
-
-      if (validRows.length === 0) {
-        return; // 没有有效数据，直接返回
-      }
-
-      // 2. 批量检查重复节目
+          customFields: row.customFields, // 保留自定义字段
+          _rowIndex: row._rowIndex
+        };
+      });
+      
+      // 2. 检查节目名称唯一性
+      const programNames = validRows.map(row => row.name);
       const existingPrograms = await tx.program.findMany({
         where: {
           competitionId,
-          name: {
-            in: validRows.map(row => row.name)
-          }
+          name: { in: programNames }
         },
         select: { name: true }
       });
-
+      
       const existingProgramNames = new Set(existingPrograms.map(p => p.name));
-
-      // 3. 过滤出可以导入的节目数据
       const programsToImport: ProcessedRow[] = [];
+      
+      // 3. 过滤掉重复节目
       for (const row of validRows) {
         if (existingProgramNames.has(row.name)) {
           failed.push({
@@ -201,60 +184,45 @@ export async function POST(request: NextRequest) {
       // 6. 收集需要创建的新选手
       const participantsToCreate: ParticipantToCreate[] = [];
       const newParticipantNames = new Set<string>();
-
+      
       programsToImport.forEach(row => {
-        row.participantNames.forEach(participantName => {
-          if (!participantMap.has(participantName) && !newParticipantNames.has(participantName)) {
+        row.participantNames.forEach(name => {
+          if (!participantMap.has(name) && !newParticipantNames.has(name)) {
+            newParticipantNames.add(name);
             participantsToCreate.push({
-              name: participantName,
-              bio: `通过节目导入自动创建 - ${row.name}`,
+              name,
+              bio: `通过节目【${row.name}】批量导入创建`,
               programName: row.name,
               importRow: row._rowIndex
             });
-            newParticipantNames.add(participantName);
           }
         });
       });
 
       // 7. 批量创建新选手
       if (participantsToCreate.length > 0) {
+        // 批量创建选手
         await tx.participant.createMany({
           data: participantsToCreate.map(p => ({
             name: p.name,
             bio: p.bio,
+            programIds: [], // 先创建空的programIds，后面再更新
           }))
         });
-
+        
         // 获取新创建的选手
         const newParticipants = await tx.participant.findMany({
           where: {
             name: {
-              in: participantsToCreate.map(p => p.name)
+              in: Array.from(newParticipantNames)
             }
           },
-          select: { id: true, name: true, team: true }
+          select: { id: true, name: true }
         });
-
-        // 添加到选手映射中
+        
+        // 添加到映射
         newParticipants.forEach(p => {
           participantMap.set(p.name, p);
-        });
-
-        // 批量创建新选手的审计日志
-        await tx.auditLog.createMany({
-          data: newParticipants.map((participant, index) => ({
-            // @ts-ignore
-            userId: session.user.id,
-            action: 'AUTO_CREATE_PARTICIPANT',
-            targetId: participant.id,
-            details: {
-              type: 'Participant',
-              name: participant.name,
-              createdBy: 'program_import',
-              programName: participantsToCreate[index]?.programName || '',
-              importRow: participantsToCreate[index]?.importRow || 0
-            },
-          }))
         });
       }
 
@@ -264,7 +232,7 @@ export async function POST(request: NextRequest) {
           .map(name => participantMap.get(name)?.id)
           .filter(Boolean) as string[];
 
-        return {
+        const programData: any = {
           name: row.name,
           description: row.description,
           order: row.order,
@@ -272,6 +240,13 @@ export async function POST(request: NextRequest) {
           competitionId,
           participantIds,
         };
+
+        // 添加自定义字段
+        if (row.customFields && Object.keys(row.customFields).length > 0) {
+          programData.customFields = row.customFields;
+        }
+
+        return programData;
       });
 
       // 批量创建节目
@@ -360,7 +335,8 @@ export async function POST(request: NextRequest) {
             competitionId,
             participantCount: program.participantIds.length,
             importRow: programsToImport[index]?._rowIndex || index + 1,
-            batchSize: data.length
+            batchSize: data.length,
+            hasCustomFields: programsToImport[index]?.customFields ? true : false
           },
         }))
       });

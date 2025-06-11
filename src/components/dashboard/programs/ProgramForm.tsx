@@ -14,8 +14,34 @@ import { useRouter } from 'next/navigation';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { ProgramStatus } from '@/lib/types';
 import { ExcelImport } from '@/components/dashboard/ExcelImport';
-import { Upload } from 'lucide-react';
+import { Upload, Plus, Trash2, X, PlusCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useParams } from 'next/navigation';
+
+// 自定义简化类型
+interface ProgramData {
+  id?: string;
+  name?: string;
+  description?: string;
+  currentStatus?: string;
+  order?: number;
+  competitionId?: string;
+  participantIds?: string[];
+  customFields?: string;
+  participant?: {
+    id: string;
+    name: string;
+  } | null;
+  judges?: Array<{
+    id: string;
+    name: string;
+  }>;
+  competition?: {
+    id: string;
+    name: string;
+    customFieldDefinitions?: string;
+  } | null;
+}
 
 // 节目表单验证模式
 const programFormSchema = z.object({
@@ -25,6 +51,12 @@ const programFormSchema = z.object({
   order: z.coerce.number().int().min(1, { message: '顺序必须大于0' }),
   currentStatus: z.enum(['WAITING', 'PERFORMING', 'COMPLETED'], { message: '请选择节目状态' }),
   participantIds: z.array(z.string()).min(1, { message: '至少需要选择一名选手' }),
+  customFields: z.array(
+    z.object({
+      name: z.string().min(1, { message: '字段名称不能为空' }),
+      value: z.string().optional(),
+    })
+  ).optional(),
 });
 
 type ProgramFormValues = z.infer<typeof programFormSchema>;
@@ -42,12 +74,12 @@ interface Competition {
 }
 
 interface ProgramFormProps {
-  initialData?: any;
-  isEditMode?: boolean;
+  initialData?: ProgramData;
   competitionId?: string;
+  isEditMode?: boolean;
 }
 
-export function ProgramForm({ initialData, isEditMode = false, competitionId }: ProgramFormProps) {
+export function ProgramForm({ initialData, competitionId, isEditMode = false }: ProgramFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -59,15 +91,26 @@ export function ProgramForm({ initialData, isEditMode = false, competitionId }: 
   const [isLoadingCompetitions, setIsLoadingCompetitions] = useState(false);
   const [participantSearch, setParticipantSearch] = useState("");
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [competitionError, setCompetitionError] = useState<string | null>(null);
+  const [participantError, setParticipantError] = useState<string | null>(null);
+  const [customFields, setCustomFields] = useState<Record<string, any>>({});
+  const [customFieldDefinitions, setCustomFieldDefinitions] = useState<Array<{
+    name: string;
+    type: 'text' | 'number' | 'select';
+    required: boolean;
+    options?: string[];
+    placeholder?: string;
+  }>>([]);
 
   // 设置表单默认值
   const defaultValues: Partial<ProgramFormValues> = {
     name: initialData?.name || "",
     description: initialData?.description || "",
     order: initialData?.order || 1,
-    currentStatus: initialData?.currentStatus || "WAITING",
+    currentStatus: (initialData?.currentStatus as "WAITING" | "PERFORMING" | "COMPLETED") || "WAITING",
     competitionId: initialData?.competitionId || competitionId || "",
     participantIds: initialData?.participantIds || [],
+    customFields: initialData?.customFields ? JSON.parse(initialData.customFields) : [],
   };
 
   const form = useForm<ProgramFormValues>({
@@ -201,69 +244,102 @@ export function ProgramForm({ initialData, isEditMode = false, competitionId }: 
     }
   }, [initialData, form]);
 
-  // 提交表单
+  // 在useEffect中加载自定义字段定义
+  useEffect(() => {
+    const loadCustomFieldDefinitions = async () => {
+      // 如果初始数据中有比赛，并且有自定义字段定义
+      if (initialData?.competition?.customFieldDefinitions) {
+        try {
+          const definitions = JSON.parse(initialData.competition.customFieldDefinitions);
+          setCustomFieldDefinitions(definitions);
+          
+          // 如果初始数据中有自定义字段值，解析它们
+          if (initialData.customFields) {
+            const fields = JSON.parse(initialData.customFields as string);
+            setCustomFields(fields);
+          }
+        } catch (error) {
+          console.error("Error parsing custom field definitions:", error);
+        }
+      }
+      // 如果没有初始数据，但有competitionId，尝试从API获取比赛的自定义字段定义
+      else if (competitionId) {
+        try {
+          const response = await fetch(`/api/competitions/${competitionId}`);
+          if (response.ok) {
+            const data = await response.json();
+            // API直接返回比赛数据，不是嵌套在competition对象中
+            if (data && data.customFieldDefinitions) {
+              const definitions = JSON.parse(data.customFieldDefinitions);
+              setCustomFieldDefinitions(definitions);
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching competition:", error);
+        }
+      }
+    };
+
+    loadCustomFieldDefinitions();
+  }, [initialData, competitionId]);
+  
+  // 更新自定义字段值
+  const handleCustomFieldChange = (name: string, value: any) => {
+    setCustomFields(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // 更新表单提交
   const onSubmit = async (data: ProgramFormValues) => {
     setIsSubmitting(true);
-    
+
     try {
+      // 合并基础数据和自定义字段
       const formData = {
         ...data,
-        participantIds: selectedParticipants,
+        competitionId: data.competitionId || competitionId,
+        // 将自定义字段转换为JSON字符串
+        customFields: JSON.stringify(customFields),
       };
 
-      const url = isEditMode
-        ? `/api/programs/${initialData.id}`
-        : "/api/programs";
-      
-      const method = isEditMode ? "PUT" : "POST";
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
+      console.log("Submitting form data:", formData);
+
+      const response = await fetch(
+        isEditMode
+          ? `/api/programs/${initialData?.id}`
+          : "/api/programs",
+        {
+          method: isEditMode ? "PATCH" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        }
+      );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "提交失败");
+        const error = await response.json();
+        throw new Error(error.message || "提交表单时出错");
       }
 
-      toast.success(isEditMode ? "节目更新成功" : "节目创建成功");
-      
-      // 如果是从比赛详情页创建的，返回到比赛详情页
-      if (competitionId || data.competitionId) {
-        router.push(`/dashboard/competitions/${competitionId || data.competitionId}`);
-      } else {
-        router.push("/dashboard/programs");
-      }
-      
+      toast.success(
+        isEditMode ? "节目已成功更新" : "节目已成功创建"
+      );
+      router.push("/dashboard/programs");
       router.refresh();
     } catch (error: any) {
-      toast.error(error.message || "提交失败，请重试");
+      toast.error(error.message || "提交表单时出错");
+      console.error("Error submitting form:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // 添加表单调试
-  const handleFormSubmit = (data: ProgramFormValues) => {
-    console.log('表单提交数据:', data);
-    console.log('选中的选手:', selectedParticipants);
-    
-    // 确保participantIds同步
-    const finalData = {
-      ...data,
-      participantIds: selectedParticipants,
-    };
-    
-    onSubmit(finalData);
-  };
-
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-8">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <FormField
           control={form.control}
           name="name"
@@ -575,23 +651,78 @@ export function ProgramForm({ initialData, isEditMode = false, competitionId }: 
           )}
         </div>
 
-        <div className="flex justify-end gap-4">
+        {/* 自定义字段部分 */}
+        {customFieldDefinitions.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">自定义字段</h3>
+            
+            {customFieldDefinitions.map((field, index) => (
+              <div key={index} className="space-y-2">
+                <label className="text-sm font-medium">
+                  {field.name} {field.required && <span className="text-red-500">*</span>}
+                </label>
+                
+                {field.type === 'text' && (
+                  <Input
+                    value={customFields[field.name] || ''}
+                    onChange={(e) => handleCustomFieldChange(field.name, e.target.value)}
+                    placeholder={field.placeholder}
+                    required={field.required}
+                  />
+                )}
+                
+                {field.type === 'number' && (
+                  <Input
+                    type="number"
+                    value={customFields[field.name] || ''}
+                    onChange={(e) => handleCustomFieldChange(field.name, e.target.value)}
+                    placeholder={field.placeholder}
+                    required={field.required}
+                  />
+                )}
+                
+                {field.type === 'select' && field.options && (
+                  <Select
+                    value={customFields[field.name] || ''}
+                    onValueChange={(value) => handleCustomFieldChange(field.name, value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={field.placeholder || '请选择'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {field.options.map((option, i) => (
+                        <SelectItem key={i} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex justify-end space-x-4">
           <Button
             type="button"
             variant="outline"
-            onClick={() => {
-              const selectedCompetitionId = competitionId || form.getValues('competitionId');
-              if (selectedCompetitionId) {
-                router.push(`/dashboard/competitions/${selectedCompetitionId}`);
-              } else {
-                router.push("/dashboard/programs");
-              }
-            }}
+            onClick={() => router.back()}
+            disabled={isSubmitting}
           >
             取消
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "提交中..." : isEditMode ? "更新节目" : "创建节目"}
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                处理中
+              </>
+            ) : isEditMode ? (
+              "更新节目"
+            ) : (
+              "创建节目"
+            )}
           </Button>
         </div>
       </form>

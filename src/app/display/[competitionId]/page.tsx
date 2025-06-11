@@ -38,6 +38,7 @@ interface Program {
   description?: string;
   order: number;
   participants: Participant[];
+  customFields?: any;
 }
 
 interface Competition {
@@ -79,6 +80,13 @@ interface DisplaySettings {
     filename: string;
     path: string;
   };
+  participantLabelFontSize?: number;
+  participantValueFontSize?: number;
+  participantCardPadding?: number;
+  participantCardGap?: number;
+  selectedParticipantFieldNames?: string[];
+  participantCardRowGap?: number;
+  averageScoreFontSize?: number;
 }
 
 interface DisplayData {
@@ -507,52 +515,116 @@ export default function DisplayPage() {
         {/* 选手信息和平均分 - 固定在底部的横向大卡片 */}
         {(scoreStreamData || currentProgram) && (
           <div className="fixed bottom-4 left-2 right-2 z-20">
-            <div className="bg-white/20 backdrop-blur-md rounded-lg py-12 px-10 w-full">
-              <div className="flex items-center justify-between">
-                {/* 左侧：选手信息 - 垂直布局 */}
-                <div className="flex-1 space-y-8">
-                  <div className="flex items-center space-x-4">
+            <div
+              className="bg-white/20 backdrop-blur-md rounded-lg w-full"
+              style={{ padding: `${settings.participantCardPadding || 48}px` }}
+            >
+              <div className="flex items-center" style={{ gap: `${settings.participantCardGap || 16}px` }}>
+                <div
+                  className="flex-1"
+                  style={{ display: 'flex', flexDirection: 'column', rowGap: `${settings.participantCardRowGap || 32}px` }}
+                >
+                  <div className="flex items-center" style={{ gap: `${settings.participantCardGap || 16}px` }}>
                     <span 
-                      className="font-medium text-7xl whitespace-nowrap min-w-fit"
-                      style={{ color: settings.programInfoColor || '#ffffff' }}
+                      className="font-medium whitespace-nowrap min-w-fit"
+                      style={{ 
+                        color: settings.programInfoColor || '#ffffff',
+                        fontSize: `${settings.participantLabelFontSize || 56}px`,
+                      }}
                     >
                       展演序号:
                     </span>
                     <span 
-                      className="text-7xl font-bold"
-                      style={{ color: settings.programInfoColor || '#ffffff' }}
+                      className="font-bold"
+                      style={{ 
+                        color: settings.programInfoColor || '#ffffff',
+                        fontSize: `${settings.participantValueFontSize || 56}px`,
+                      }}
                     >
                       {scoreStreamData?.programOrder || currentProgram?.order}
                     </span>
                   </div>
-                  <div className="flex items-center space-x-4">
+                  <div className="flex items-center" style={{ gap: `${settings.participantCardGap || 16}px` }}>
                     <span 
-                      className="font-medium text-7xl whitespace-nowrap min-w-fit"
-                      style={{ color: settings.programInfoColor || '#ffffff' }}
+                      className="font-medium whitespace-nowrap min-w-fit"
+                      style={{ 
+                        color: settings.programInfoColor || '#ffffff',
+                        fontSize: `${settings.participantLabelFontSize || 56}px`,
+                      }}
                     >
                       展演作品:
                     </span>
                     <span 
-                      className="text-7xl font-bold"
-                      style={{ color: settings.programInfoColor || '#ffffff' }}
+                      className="font-bold"
+                      style={{ 
+                        color: settings.programInfoColor || '#ffffff',
+                        fontSize: `${settings.participantValueFontSize || 56}px`,
+                      }}
                     >
                       {scoreStreamData?.programName || currentProgram?.name}
                     </span>
                   </div>
-                  <div className="flex items-center space-x-4">
+                  <div className="flex items-center" style={{ gap: `${settings.participantCardGap || 16}px` }}>
                     <span 
-                      className="font-medium text-7xl whitespace-nowrap min-w-fit"
-                      style={{ color: settings.programInfoColor || '#ffffff' }}
+                      className="font-medium whitespace-nowrap min-w-fit"
+                      style={{ 
+                        color: settings.programInfoColor || '#ffffff',
+                        fontSize: `${settings.participantLabelFontSize || 56}px`,
+                      }}
                     >
                       选送机构:
                     </span>
                     <span 
-                      className="text-7xl font-bold"
-                      style={{ color: settings.programInfoColor || '#ffffff' }}
+                      className="font-bold"
+                      style={{ 
+                        color: settings.programInfoColor || '#ffffff',
+                        fontSize: `${settings.participantValueFontSize || 56}px`,
+                      }}
                     >
                       {[...new Set((scoreStreamData?.participants || currentProgram?.participants || []).map(p => p.team).filter(Boolean))].join('、') || '暂无'}
                     </span>
                   </div>
+
+                  {/* 动态自定义字段 */}
+                  {settings.selectedParticipantFieldNames && settings.selectedParticipantFieldNames.length > 0 && (
+                    <>
+                      {settings.selectedParticipantFieldNames.map((fieldName) => {
+                        // 从 currentProgram.customFields 获取值
+                        let value: any = undefined;
+                        const customFieldsRaw = currentProgram?.customFields;
+                        if (customFieldsRaw) {
+                          try {
+                            const obj = typeof customFieldsRaw === 'string' ? JSON.parse(customFieldsRaw) : customFieldsRaw;
+                            value = obj[fieldName];
+                          } catch (e) {
+                            console.error('解析 customFields 失败', e);
+                          }
+                        }
+                        return (
+                          <div key={fieldName} className="flex items-center" style={{ gap: `${settings.participantCardGap || 16}px` }}>
+                            <span
+                              className="font-medium whitespace-nowrap min-w-fit"
+                              style={{
+                                color: settings.programInfoColor || '#ffffff',
+                                fontSize: `${settings.participantLabelFontSize || 56}px`,
+                              }}
+                            >
+                              {fieldName}:
+                            </span>
+                            <span
+                              className="font-bold"
+                              style={{
+                                color: settings.programInfoColor || '#ffffff',
+                                fontSize: `${settings.participantValueFontSize || 56}px`,
+                              }}
+                            >
+                              {value ?? '—'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
                 </div>
                 
                 {/* 右侧：平均分 */}
@@ -568,8 +640,8 @@ export default function DisplayPage() {
                       {/* 显示平均分或等待状态 */}
                       {scoreStreamData?.allJudgesScored || (!scoreStreamData && judgeScores.length > 0) ? (
                         <span 
-                          className="text-[12rem] font-bold transition-all duration-500 leading-none"
-                          style={{ color: settings.averageScoreColor || '#ffffff' }}
+                          className="font-bold transition-all duration-500 leading-none"
+                          style={{ color: settings.averageScoreColor || '#ffffff', fontSize: `${settings.averageScoreFontSize || 192}px` }}
                         >
                           {scoreStreamData?.averageScore?.toFixed(2) || 
                            (judgeScores.length > 0 
@@ -581,8 +653,8 @@ export default function DisplayPage() {
                       ) : (
                         <div className="text-center">
                           <span 
-                            className="text-[10rem] font-bold text-yellow-400 leading-none"
-                            style={{ color: settings.averageScoreColor || '#ffffff' }}
+                            className="font-bold text-yellow-400 leading-none"
+                            style={{ color: settings.averageScoreColor || '#ffffff', fontSize: `${Math.max((settings.averageScoreFontSize || 192) * 0.83, 48)}px` }}
                           >
                             等待中...
                           </span>

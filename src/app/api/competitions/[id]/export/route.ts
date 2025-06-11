@@ -74,7 +74,7 @@ export async function GET(
 
 // 导出评分数据
 async function exportScoresData(competitionId: string, format: string, competition: any) {
-  // 获取比赛下所有节目的评分数据
+  // 获取比赛下所有节目的评分数据，并包含自定义字段
   const programsWithScores = await prisma.program.findMany({
     where: { competitionId },
     include: {
@@ -94,6 +94,12 @@ async function exportScoresData(competitionId: string, format: string, competiti
               weight: true,
               maxScore: true
             }
+          },
+          judge: {
+            select: {
+              id: true,
+              name: true,
+            }
           }
         },
         orderBy: [
@@ -105,86 +111,119 @@ async function exportScoresData(competitionId: string, format: string, competiti
     orderBy: { order: 'asc' }
   });
 
-  // 获取所有评分标准
-  const scoringCriteria = await prisma.scoringCriteria.findMany({
-    where: { competitionId },
-    orderBy: { name: 'asc' }
+  // 获取所有评委信息（已在上面的查询中通过include获取）
+  const judgeMap = new Map<string, string>();
+  programsWithScores.forEach(p => {
+    p.scores.forEach(s => {
+      if (s.judge && !judgeMap.has(s.judge.id)) {
+        judgeMap.set(s.judge.id, s.judge.name || '未知评委');
+      }
+    });
   });
+  const judges = Array.from(judgeMap.entries()).map(([id, name]) => ({ id, name }));
 
-  // 获取所有评委ID
-  const allJudgeIds = Array.from(new Set(
-    programsWithScores.flatMap(p => p.scores.map(s => s.judgeId))
-  ));
-
-  // 获取所有评委信息
-  const judges = await prisma.user.findMany({
-    where: {
-      id: { in: allJudgeIds }
-    },
-    select: {
-      id: true,
-      name: true
-    }
-  });
-
-  // 创建评委ID到名字的映射
-  const judgeMap = new Map(judges.map(judge => [judge.id, judge.name]));
+  // 获取所有自定义字段的键名
+  const customFieldKeys = Array.from(
+    new Set(
+      programsWithScores.flatMap(p => {
+        if (!p.customFields) return [];
+        // 如果是字符串，则尝试解析JSON
+        if (typeof p.customFields === 'string') {
+          try {
+            const fields = JSON.parse(p.customFields as string);
+            return Object.keys(fields);
+          } catch {
+            return [];
+          }
+        }
+        // 如果是对象，直接返回键名
+        if (typeof p.customFields === 'object') {
+          try {
+            return Object.keys(p.customFields as any);
+          } catch {
+            return [];
+          }
+        }
+        return [];
+      })
+    )
+  );
 
   if (format === 'xlsx') {
-    // 创建Excel数据数组
-    const excelData = [];
+    const excelData: (string | number | Date | null)[][] = [];
     
-    // 添加标题行
-    excelData.push([
+    // 添加标题行，动态添加自定义字段列
+    const headers = [
       '节目名称', '节目顺序', '选手姓名', '选手团队', '评委姓名', 
-      '评分标准', '分数', '权重', '最高分', '评语', '评分时间', '总分'
-    ]);
+      '评分标准', '分数', '权重', '最高分', '评语', '评分时间'
+    ];
+    headers.push(...customFieldKeys);
+    excelData.push(headers);
     
     // 添加数据行
     for (const program of programsWithScores) {
       const participantNames = program.participants.map(p => p.name).join('、');
       const participantTeams = program.participants.map(p => p.team || '无').join('、');
-      const totalScore = calculateProgramTotalScore(program.scores);
-      
+      let customFields: Record<string, any> = {};
+      if (program.customFields) {
+        if (typeof program.customFields === 'string') {
+          try {
+            customFields = JSON.parse(program.customFields as string);
+          } catch {}
+        } else if (typeof program.customFields === 'object') {
+          customFields = program.customFields as any;
+        }
+      }
+
       if (program.scores.length === 0) {
-        // 没有评分的节目也要显示
-        excelData.push([
+        const row = [
           program.name, program.order, participantNames, participantTeams,
-          '', '', '', '', '', '', '', 0
-        ]);
+          '', '', '', '', '', '', ''
+        ];
+        // 添加自定义字段的值
+        customFieldKeys.forEach(key => {
+          row.push(customFields[key] || '');
+        });
+        excelData.push(row);
       } else {
-        for (const score of program.scores) {
-          const judgeName = judgeMap.get(score.judgeId) || '未知评委';
-          excelData.push([
-            program.name, program.order, participantNames, participantTeams,
-            judgeName, score.scoringCriteria.name, score.value,
-            score.scoringCriteria.weight, score.scoringCriteria.maxScore,
-            score.comment || '', new Date(score.createdAt).toLocaleString('zh-CN'),
-            totalScore
-          ]);
+        // 按评委分组
+        const scoresByJudge = program.scores.reduce((acc, score) => {
+          if (!acc[score.judgeId]) {
+            acc[score.judgeId] = [];
+          }
+          acc[score.judgeId].push(score);
+          return acc;
+        }, {} as Record<string, typeof program.scores>);
+
+        for (const judgeId in scoresByJudge) {
+          const judgeScores = scoresByJudge[judgeId];
+          const judgeName = judgeScores[0]?.judge?.name || '未知评委';
+          
+          for(const score of judgeScores) {
+            const row = [
+              program.name, program.order, participantNames, participantTeams,
+              judgeName, score.scoringCriteria.name, score.value,
+              score.scoringCriteria.weight, score.scoringCriteria.maxScore,
+              score.comment || '', new Date(score.createdAt).toLocaleString('zh-CN'),
+            ];
+            // 添加自定义字段的值
+            customFieldKeys.forEach(key => {
+              row.push(customFields[key] || '');
+            });
+            excelData.push(row);
+          }
         }
       }
     }
 
-    // 创建工作簿和工作表
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.aoa_to_sheet(excelData);
     
-    // 设置列宽
-    worksheet['!cols'] = [
-      { wch: 20 }, // 节目名称
-      { wch: 10 }, // 节目顺序
-      { wch: 15 }, // 选手姓名
-      { wch: 15 }, // 选手团队
-      { wch: 12 }, // 评委姓名
-      { wch: 15 }, // 评分标准
-      { wch: 8 },  // 分数
-      { wch: 8 },  // 权重
-      { wch: 8 },  // 最高分
-      { wch: 20 }, // 评语
-      { wch: 18 }, // 评分时间
-      { wch: 10 }  // 总分
-    ];
+    // 自动设置列宽
+    const cols = headers.map(header => ({
+      wch: Math.max(header.length, 15) // 最小宽度15
+    }));
+    worksheet['!cols'] = cols;
     
     XLSX.utils.book_append_sheet(workbook, worksheet, '评分数据');
 
@@ -197,6 +236,7 @@ async function exportScoresData(competitionId: string, format: string, competiti
         'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
       },
     });
+
   } else if (format === 'json') {
     const exportData = {
       competition: {
@@ -205,29 +245,42 @@ async function exportScoresData(competitionId: string, format: string, competiti
         organizer: competition.organizer.name,
         exportTime: new Date().toISOString()
       },
-      scoringCriteria,
       judges: judges,
-      programs: programsWithScores.map(program => ({
-        id: program.id,
-        name: program.name,
-        order: program.order,
-        status: program.currentStatus,
-        participants: program.participants,
-        scores: program.scores.map(score => ({
-          judgeId: score.judgeId,
-          judgeName: judgeMap.get(score.judgeId) || '未知评委',
-          criteriaId: score.scoringCriteriaId,
-          criteriaName: score.scoringCriteria.name,
-          value: score.value,
-          weight: score.scoringCriteria.weight,
-          maxScore: score.scoringCriteria.maxScore,
-          comment: score.comment,
-          createdAt: score.createdAt,
-          updatedAt: score.updatedAt
-        })),
-        totalScore: calculateProgramTotalScore(program.scores),
-        averageScore: calculateProgramAverageScore(program.scores, scoringCriteria)
-      }))
+      programs: programsWithScores.map(program => {
+        let customFields: Record<string, any> = {};
+        if (program.customFields) {
+          if (typeof program.customFields === 'string') {
+            try {
+              customFields = JSON.parse(program.customFields as string);
+            } catch {}
+          } else if (typeof program.customFields === 'object') {
+            customFields = program.customFields as any;
+          }
+        }
+        
+        return {
+          id: program.id,
+          name: program.name,
+          order: program.order,
+          status: program.currentStatus,
+          participants: program.participants,
+          customFields: customFields, // 添加自定义字段
+          scores: program.scores.map(score => ({
+            judgeId: score.judgeId,
+            judgeName: score.judge?.name || '未知评委',
+            criteriaId: score.scoringCriteriaId,
+            criteriaName: score.scoringCriteria.name,
+            value: score.value,
+            weight: score.scoringCriteria.weight,
+            maxScore: score.scoringCriteria.maxScore,
+            comment: score.comment,
+            createdAt: score.createdAt,
+            updatedAt: score.updatedAt
+          })),
+          totalScore: calculateProgramTotalScore(program.scores),
+          averageScore: calculateProgramAverageScore(program.scores, competition.scoringCriteria)
+        };
+      })
     };
 
     return NextResponse.json(exportData);
