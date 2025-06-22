@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Star, CheckCircle, ArrowLeft, ArrowRight, Save, Eye, Monitor, ArrowUpRight, ChevronDown, ChevronUp, Users } from 'lucide-react';
+import { Star, CheckCircle, ArrowLeft, ArrowRight, Save, Eye, Monitor, ArrowUpRight, ChevronDown, ChevronUp, Users, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { JudgeHeader } from '@/components/judge/JudgeHeader';
 
@@ -90,6 +90,7 @@ export default function ScoringPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentDisplayProgram, setCurrentDisplayProgram] = useState<CurrentDisplayProgram | null>(null);
   const [loadingDisplayInfo, setLoadingDisplayInfo] = useState(false);
+  const [showComments, setShowComments] = useState<Record<string, boolean>>({});
 
   // 参赛者折叠状态
   const [showAllParticipants, setShowAllParticipants] = useState(false);
@@ -112,6 +113,10 @@ export default function ScoringPage() {
   const form = useForm<FormValues>({
     defaultValues: {},
   });
+
+  const toggleComment = (criterionId: string) => {
+    setShowComments(prev => ({ ...prev, [criterionId]: !prev[criterionId] }));
+  };
 
   // 获取本地存储的键名
   const getStorageKey = () => `judge_scoring_${competitionId}_program_index`;
@@ -172,6 +177,17 @@ export default function ScoringPage() {
       form.reset(defaultValues);
     }
   }, [competition, currentProgramIndex, existingScores, form]);
+
+  useEffect(() => {
+    const initialShowComments: Record<string, boolean> = {};
+    if (competition?.scoringCriteria) {
+      competition.scoringCriteria.forEach(criterion => {
+        const existingScore = existingScores.find(s => s.criteriaId === criterion.id);
+        initialShowComments[criterion.id] = !!existingScore?.comment;
+      });
+      setShowComments(initialShowComments);
+    }
+  }, [existingScores, competition]);
 
   // 监听页面可见性变化，保存当前状态
   useEffect(() => {
@@ -592,24 +608,50 @@ export default function ScoringPage() {
                         )}
                       />
                       
-                      <FormField
-                        control={form.control}
-                        name={`comment_${criterion.id}`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm">评语 (可选)</FormLabel>
-                            <FormControl>
-                              <Textarea
-                                placeholder="输入评语..."
-                                className="min-h-[60px] text-base"
-                                value={field.value || ''}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      {showComments[criterion.id] ? (
+                        <FormField
+                          control={form.control}
+                          name={`comment_${criterion.id}`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <div className="flex justify-between items-center">
+                                <FormLabel className="text-sm">评语 (可选)</FormLabel>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-xs h-7"
+                                  onClick={() => toggleComment(criterion.id)}
+                                >
+                                  收起
+                                </Button>
+                              </div>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="输入评语..."
+                                  className="min-h-[60px] text-base"
+                                  value={field.value || ''}
+                                  onChange={field.onChange}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      ) : (
+                        <div className="flex items-center lg:items-end h-full">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-full sm:w-auto"
+                            onClick={() => toggleComment(criterion.id)}
+                          >
+                            <Pencil className="h-3 w-3 mr-2" />
+                            添加评语
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </Card>
                 ))}

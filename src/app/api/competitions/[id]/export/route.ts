@@ -163,7 +163,7 @@ async function exportScoresData(competitionId: string, format: string, competiti
     // 添加数据行
     for (const program of programsWithScores) {
       const participantNames = program.participants.map(p => p.name).join('、');
-      const participantTeams = program.participants.map(p => p.team || '无').join('、');
+      const participantTeams = [...new Set(program.participants.map(p => p.team || '无'))].join('、');
       let customFields: Record<string, any> = {};
       if (program.customFields) {
         if (typeof program.customFields === 'string') {
@@ -317,7 +317,7 @@ async function exportRankingsData(competitionId: string, format: string, competi
     // 添加数据行
     for (const ranking of rankings) {
       const participantNames = ranking.program.participants.map(p => p.name).join('、');
-      const participantTeams = ranking.program.participants.map(p => p.team || '无').join('、');
+      const participantTeams = [...new Set(ranking.program.participants.map(p => p.team || '无'))].join('、');
       
       excelData.push([
         ranking.rank,
@@ -396,23 +396,36 @@ async function exportParticipantsData(competitionId: string, format: string, com
   const participants = Array.from(participantMap.values());
 
   if (format === 'xlsx') {
+    // 整理团队数据
+    const teamData: { [key: string]: any[] } = {};
+    participants.forEach(p => {
+      const teamName = p.team || '个人参赛';
+      if (!teamData[teamName]) {
+        teamData[teamName] = [];
+      }
+      teamData[teamName].push(p);
+    });
+
     // 创建Excel数据数组
-    const excelData = [];
+    const excelData: (string | number)[][] = [];
     
     // 添加标题行
-    excelData.push(['选手姓名', '选手团队', '联系方式', '个人简介', '参与节目', '参与节目数量', '注册时间']);
+    excelData.push(['选手团队', '选手姓名', '联系方式', '个人简介', '参与节目', '参与节目数量', '注册时间']);
     
     // 添加数据行
-    for (const participant of participants) {
-      excelData.push([
-        participant.name,
-        participant.team || '无',
-        participant.contact || '',
-        participant.bio || '',
-        participant.programs.join('、'),
-        participant.programs.length,
-        new Date(participant.createdAt).toLocaleString('zh-CN')
-      ]);
+    for (const teamName in teamData) {
+      const teamMembers = teamData[teamName];
+      teamMembers.forEach((participant, index) => {
+        excelData.push([
+          index === 0 ? teamName : '', // 只在团队第一行显示团队名称
+          participant.name,
+          participant.contact || '',
+          participant.bio || '',
+          participant.programs.join('、'),
+          participant.programs.length,
+          new Date(participant.createdAt).toLocaleString('zh-CN')
+        ]);
+      });
     }
 
     // 创建工作簿和工作表
@@ -421,8 +434,8 @@ async function exportParticipantsData(competitionId: string, format: string, com
     
     // 设置列宽
     worksheet['!cols'] = [
-      { wch: 12 }, // 选手姓名
       { wch: 15 }, // 选手团队
+      { wch: 12 }, // 选手姓名
       { wch: 15 }, // 联系方式
       { wch: 25 }, // 个人简介
       { wch: 30 }, // 参与节目
