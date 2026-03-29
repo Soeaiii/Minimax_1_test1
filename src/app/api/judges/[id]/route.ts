@@ -148,6 +148,7 @@ export async function PUT(
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
+        tenantId: session.user.tenantId,
         action: 'UPDATE_JUDGE',
         targetId: params.id,
         details: {
@@ -248,6 +249,7 @@ export async function DELETE(
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
+        tenantId: session.user.tenantId,
         action: force ? 'FORCE_DELETE_JUDGE' : 'DELETE_JUDGE',
         targetId: params.id,
         details: {
@@ -274,4 +276,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-} 
+}

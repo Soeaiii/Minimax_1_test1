@@ -180,6 +180,7 @@ export async function PUT(
     try {
       await prisma.auditLog.create({
         data: {
+          tenantId: session.user.tenantId,
           userId: session.user.id,
           action: 'UPDATE_PROGRAM',
           targetId: id,
@@ -252,6 +253,7 @@ export async function DELETE(
     try {
       await prisma.auditLog.create({
         data: {
+          tenantId: session.user.tenantId,
           userId: session.user.id,
           action: 'DELETE_PROGRAM',
           targetId: id,
@@ -369,4 +371,4 @@ export async function PATCH(
       { status: 500 }
     );
   }
-} 
+}

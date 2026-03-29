@@ -29,7 +29,7 @@ export function withAuth(
     if (allowedRoles && allowedRoles.length > 0) {
       const userRole = session?.user?.role;
       
-      if (!userRole || !allowedRoles.includes(userRole)) {
+      if (!userRole || !allowedRoles.includes(userRole as UserRole)) {
         // 如果用户没有权限，重定向到无权限页面
         redirect('/unauthorized');
         return null;
@@ -38,4 +38,4 @@ export function withAuth(
     
     return <Component {...props} />;
   };
-} 
+}

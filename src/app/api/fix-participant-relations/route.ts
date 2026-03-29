@@ -116,6 +116,7 @@ export async function POST() {
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
+        tenantId: session.user.tenantId,
         action: 'FIX_PARTICIPANT_RELATIONS',
         targetId: 'system',
         details: {
@@ -139,4 +140,4 @@ export async function POST() {
       { status: 500 }
     );
   }
-} 
+}

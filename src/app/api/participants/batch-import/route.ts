@@ -131,8 +131,8 @@ export async function POST(request: NextRequest) {
         if (createdParticipants.length > 0) {
           await tx.auditLog.createMany({
             data: createdParticipants.map((participant, index) => ({
-              // @ts-ignore
               userId: session.user.id,
+              tenantId: session.user.tenantId,
               action: 'BATCH_IMPORT_PARTICIPANT',
               targetId: participant.id,
               details: {
@@ -164,8 +164,8 @@ export async function POST(request: NextRequest) {
     // 记录批量导入操作
     await prisma.auditLog.create({
       data: {
-        // @ts-ignore
         userId: session.user.id,
+        tenantId: session.user.tenantId,
         action: 'BATCH_IMPORT_COMPLETE',
         targetId: 'participants',
         details: {
@@ -195,4 +195,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

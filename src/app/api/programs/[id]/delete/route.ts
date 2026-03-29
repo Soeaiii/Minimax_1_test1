@@ -72,9 +72,14 @@ export async function DELETE(
     // 记录审计日志
     await prisma.auditLog.create({
       data: {
-        action: 'DELETE',
+        tenantId: session.user.tenantId,
+        action: 'DELETE_PROGRAM',
         userId: session.user.id,
-        details: `删除节目: ${program.name}`
+        targetId: programId,
+        details: {
+          programName: program.name,
+          competitionId: program.competitionId
+        }
       }
     })
 
@@ -90,4 +95,4 @@ export async function DELETE(
       { status: 500 }
     )
   }
-} 
+}

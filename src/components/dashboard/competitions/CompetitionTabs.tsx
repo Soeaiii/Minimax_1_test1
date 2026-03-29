@@ -51,7 +51,12 @@ const DisplayManagement = dynamic(
 );
 
 interface CompetitionTabsProps {
-  competition: any;
+  competition: {
+    name?: string;
+    programs?: any[];
+    rankings?: any[];
+    [key: string]: any;
+  } | null;
   competitionId: string;
 }
 
@@ -138,7 +143,7 @@ export function CompetitionTabs({ competition, competitionId }: CompetitionTabsP
                   <DialogHeader>
                     <DialogTitle>批量导入节目</DialogTitle>
                     <DialogDescription>
-                      从Excel表格批量导入节目信息到《{competition.name}》比赛
+                      从Excel表格批量导入节目信息到《{competition?.name || '未命名比赛'}》比赛
                     </DialogDescription>
                   </DialogHeader>
                   <ExcelImport 
@@ -157,7 +162,7 @@ export function CompetitionTabs({ competition, competitionId }: CompetitionTabsP
             </div>
           </CardHeader>
           <CardContent>
-            {competition.programs && competition.programs.length > 0 ? (
+            {competition?.programs && competition.programs.length > 0 ? (
               <div className="rounded-md border">
                 {/* 这里渲染节目列表 */}
                 <div className="grid grid-cols-5 bg-muted p-4 font-medium">
@@ -168,7 +173,7 @@ export function CompetitionTabs({ competition, competitionId }: CompetitionTabsP
                   <div>操作</div>
                 </div>
                 
-                {competition.programs.map((program: any) => (
+                {competition?.programs?.map((program: any) => (
                   <div key={program.id} className="grid grid-cols-5 border-t p-4">
                     <div className="text-sm font-medium">{program.name}</div>
                     <div className="text-sm">{program.order}</div>
@@ -207,7 +212,7 @@ export function CompetitionTabs({ competition, competitionId }: CompetitionTabsP
             </Button>
           </CardHeader>
           <CardContent>
-            {competition.programs && competition.programs.some((p: any) => p.participants?.length > 0) ? (
+            {competition?.programs && competition.programs.some((p: any) => p.participants?.length > 0) ? (
               <div className="rounded-md border">
                 {/* 这里渲染选手列表 */}
                 <div className="grid grid-cols-4 bg-muted p-4 font-medium">
@@ -219,20 +224,20 @@ export function CompetitionTabs({ competition, competitionId }: CompetitionTabsP
                 
                 {/* 获取所有节目中的唯一选手 */}
                 {Array.from(new Set(
-                  competition.programs.flatMap((p: any) => p.participants || []).map((part: any) => part.id)
+                  competition?.programs?.flatMap((p: any) => p.participants || []).map((part: any) => part.id) || []
                 )).map((participantId: any) => {
-                  const participant = competition.programs
-                    .flatMap((p: any) => p.participants || [])
-                    .find((part: any) => part.id === participantId);
+                  const participant = competition?.programs
+                    ?.flatMap((p: any) => p.participants || [])
+                    ?.find((part: any) => part.id === participantId);
                   
-                  const participantPrograms = competition.programs
-                    .filter((p: any) => (p.participants || []).some((part: any) => part.id === participantId))
-                    .map((p: any) => p.name);
+                  const participantPrograms = competition?.programs
+                    ?.filter((p: any) => (p.participants || []).some((part: any) => part.id === participantId))
+                    ?.map((p: any) => p.name) || [];
                   
                   return (
                     <div key={participantId} className="grid grid-cols-4 border-t p-4">
-                      <div className="text-sm font-medium">{participant.name}</div>
-                      <div className="text-sm">{participant.team || '无'}</div>
+                      <div className="text-sm font-medium">{participant?.name || '未知选手'}</div>
+                      <div className="text-sm">{participant?.team || '无'}</div>
                       <div className="text-sm">{participantPrograms.join(', ')}</div>
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm" asChild>
@@ -268,7 +273,7 @@ export function CompetitionTabs({ competition, competitionId }: CompetitionTabsP
             </Button>
           </CardHeader>
           <CardContent>
-            {competition.rankings && competition.rankings.length > 0 ? (
+            {competition?.rankings && competition.rankings.length > 0 ? (
               <div className="rounded-md border">
                 <div className="grid grid-cols-4 bg-muted p-4 font-medium">
                   <div>排名</div>
@@ -277,7 +282,7 @@ export function CompetitionTabs({ competition, competitionId }: CompetitionTabsP
                   <div>更新类型</div>
                 </div>
                 
-                {competition.rankings.map((ranking: any) => (
+                {competition?.rankings?.map((ranking: any) => (
                   <div key={ranking.id} className="grid grid-cols-4 border-t p-4">
                     <div className="text-sm font-medium">{ranking.rank}</div>
                     <div className="text-sm">{ranking.program.name}</div>
@@ -342,9 +347,9 @@ export function CompetitionTabs({ competition, competitionId }: CompetitionTabsP
             </CardContent>
           </Card>
         }>
-          <ExportData competitionId={competitionId} competitionName={competition.name} />
+          <ExportData competitionId={competitionId} competitionName={competition?.name || '未命名比赛'} />
         </Suspense>
       </TabsContent>
     </Tabs>
   );
-} 
+}

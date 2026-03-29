@@ -118,8 +118,8 @@ export async function PUT(
       // 记录审计日志
       await tx.auditLog.create({
         data: {
-          // @ts-ignore
           userId: session.user.id,
+          tenantId: session.user.tenantId,
           action: 'UPDATE',
           targetId: id,
           details: {
@@ -191,8 +191,8 @@ export async function DELETE(
       // 记录审计日志
       await tx.auditLog.create({
         data: {
-          // @ts-ignore
           userId: session.user.id,
+          tenantId: session.user.tenantId,
           action: 'DELETE',
           targetId: id,
           details: {
@@ -217,4 +217,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-} 
+}

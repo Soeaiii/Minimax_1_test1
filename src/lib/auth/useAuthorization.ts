@@ -16,7 +16,7 @@ export function useAuthorization(allowedRoles: UserRole[]) {
     
     // 如果会话已加载完成且用户已认证，但角色不在允许的列表中，重定向到未授权页面
     if (status === 'authenticated' && session?.user?.role) {
-      if (!allowedRoles.includes(session.user.role)) {
+      if (!allowedRoles.includes(session.user.role as UserRole)) {
         router.push('/unauthorized');
       }
     }
@@ -29,6 +29,6 @@ export function useAuthorization(allowedRoles: UserRole[]) {
     hasPermission: 
       status === 'authenticated' && 
       session?.user?.role && 
-      allowedRoles.includes(session.user.role),
+      allowedRoles.includes(session.user.role as UserRole),
   };
-} 
+}

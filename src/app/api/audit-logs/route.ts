@@ -195,6 +195,7 @@ export async function DELETE(request: Request) {
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
+        tenantId: session.user.tenantId,
         action: 'CLEANUP_AUDIT_LOGS',
         details: {
           beforeCount,
@@ -218,4 +219,4 @@ export async function DELETE(request: Request) {
       { status: 500 }
     );
   }
-} 
+}

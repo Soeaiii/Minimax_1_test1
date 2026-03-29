@@ -10,6 +10,22 @@ async function main() {
   // 这里我们跳过清理步骤，直接创建数据
   console.log('跳过数据清理步骤，直接创建示例数据...')
 
+  // 创建默认租户
+  const defaultTenant = await prisma.tenant.create({
+    data: {
+      name: '默认租户',
+      domain: 'default.example.com',
+      settings: {
+        allowRegistration: true,
+        maxUsers: 1000,
+        features: ['competitions', 'scoring', 'reports']
+      },
+      isActive: true,
+    },
+  })
+  
+  console.log('✓ 已创建默认租户:', defaultTenant.name)
+
   // 创建用户
   const hashedPassword = await bcrypt.hash('system1123', 12)
   
@@ -19,6 +35,17 @@ async function main() {
       email: 'admin@example.com',
       password: hashedPassword,
       role: 'ADMIN',
+      tenantId: defaultTenant.id,
+      permissions: [
+        'user:create', 'user:read', 'user:update', 'user:delete',
+        'competition:create', 'competition:read', 'competition:update', 'competition:delete',
+        'program:create', 'program:read', 'program:update', 'program:delete',
+        'participant:create', 'participant:read', 'participant:update', 'participant:delete',
+        'score:create', 'score:read', 'score:update', 'score:delete',
+        'judge:assign', 'judge:remove',
+        'system:settings', 'data:export', 'audit:read'
+      ],
+      isActive: true,
     },
   })
 
@@ -28,6 +55,16 @@ async function main() {
       email: 'organizer@example.com',
       password: hashedPassword,
       role: 'ORGANIZER',
+      tenantId: defaultTenant.id,
+      permissions: [
+        'competition:create', 'competition:read', 'competition:update', 'competition:manage',
+        'program:create', 'program:read', 'program:update', 'program:delete',
+        'participant:create', 'participant:read', 'participant:update', 'participant:delete',
+        'judge:assign', 'judge:remove',
+        'score:read',
+        'data:export'
+      ],
+      isActive: true,
     },
   })
 
@@ -37,6 +74,9 @@ async function main() {
       email: 'judge1@example.com',
       password: hashedPassword,
       role: 'JUDGE',
+      tenantId: defaultTenant.id,
+      permissions: ['score:create', 'score:read', 'score:update'],
+      isActive: true,
     },
   })
 
@@ -46,6 +86,9 @@ async function main() {
       email: 'judge2@example.com',
       password: hashedPassword,
       role: 'JUDGE',
+      tenantId: defaultTenant.id,
+      permissions: ['score:create', 'score:read', 'score:update'],
+      isActive: true,
     },
   })
 
@@ -55,6 +98,9 @@ async function main() {
       email: 'judge3@example.com',
       password: hashedPassword,
       role: 'JUDGE',
+      tenantId: defaultTenant.id,
+      permissions: ['score:create', 'score:read', 'score:update'],
+      isActive: true,
     },
   })
 
@@ -112,6 +158,8 @@ async function main() {
       name: '2024年度艺术节才艺大赛',
       description: '展示各种艺术才能的综合性比赛，包括舞蹈、声乐、器乐、戏剧等多个类别',
       organizerId: organizer.id,
+      tenantId: defaultTenant.id,
+      creatorId: organizer.id,
       startTime: new Date('2024-03-01T09:00:00Z'),
       endTime: new Date('2024-03-01T18:00:00Z'),
       status: 'ACTIVE',
@@ -292,6 +340,7 @@ async function main() {
     prisma.auditLog.create({
       data: {
         userId: admin.id,
+        tenantId: defaultTenant.id,
         action: '创建比赛',
         targetId: competition.id,
         details: { competitionName: competition.name },
@@ -300,6 +349,7 @@ async function main() {
     prisma.auditLog.create({
       data: {
         userId: organizer.id,
+        tenantId: defaultTenant.id,
         action: '创建节目',
         targetId: programs[0].id,
         details: { programName: programs[0].name },
@@ -308,6 +358,7 @@ async function main() {
     prisma.auditLog.create({
       data: {
         userId: judge1.id,
+        tenantId: defaultTenant.id,
         action: '提交评分',
         targetId: programs[0].id,
         details: { programName: programs[0].name },
@@ -377,4 +428,4 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect()
-  }) 
+  })

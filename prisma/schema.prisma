@@ -13,23 +13,51 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
+model Tenant {
   id            String    @id @default(auto()) @map("_id") @db.ObjectId
   name          String
-  email         String    @unique
+  domain        String?   @unique
+  settings      Json?     @default("{}")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  isActive      Boolean   @default(true)
+  
+  // 关系
+  users         User[]
+  competitions  Competition[]
+  auditLogs     AuditLog[]
+  judgeAssignments JudgeAssignment[]
+  @@index([isActive])
+}
+
+model User {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId      String    @db.ObjectId
+  name          String
+  email         String
   password      String
   role          UserRole  @default(USER)
+  permissions   Json?     @default("[]")
   avatar        String?   // 头像URL或路径
   bio           String?   // 个人简介（可选）
+  lastLogin     DateTime?
+  isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   isDeleted     Boolean   @default(false)
   
   // 关系
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
   competitions  Competition[] @relation("OrganizedCompetitions")
+  createdCompetitions Competition[] @relation("CreatedCompetitions")
   auditLogs     AuditLog[]
   judgeScores   Score[]   @relation("JudgeScores")
+  judgeAssignments JudgeAssignment[]
+  @@index([tenantId])
+  @@index([email, tenantId])
   @@index([name])
+  @@index([role])
+  @@index([isActive])
 }
 
 enum UserRole {
@@ -41,9 +69,11 @@ enum UserRole {
 
 model Competition {
   id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String    @db.ObjectId
   name                String
   description         String?
   organizerId         String    @db.ObjectId
+  creatorId           String    @db.ObjectId
   startTime           DateTime
   endTime             DateTime
   status              CompetitionStatus @default(PENDING)
@@ -54,7 +84,9 @@ model Competition {
   customFieldDefinitions Json?   // 比赛级别的自定义字段定义
   
   // 关系
+  tenant              Tenant    @relation(fields: [tenantId], references: [id])
   organizer           User      @relation("OrganizedCompetitions", fields: [organizerId], references: [id])
+  creator             User      @relation("CreatedCompetitions", fields: [creatorId], references: [id])
   programs            Program[]
   scoringCriteria     ScoringCriteria[]
   rankings            Ranking[]
@@ -62,7 +94,10 @@ model Competition {
   fileIds             String[]  @db.ObjectId
   files               File[]    @relation("CompetitionFiles", fields: [fileIds], references: [id])
   displaySettings     DisplaySettings?
+  judgeAssignments    JudgeAssignment[]
+  @@index([tenantId])
   @@index([organizerId])
+  @@index([creatorId])
   @@index([status])
 }
 
@@ -192,6 +227,7 @@ model File {
 
 model AuditLog {
   id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId      String    @db.ObjectId
   timestamp     DateTime  @default(now())
   userId        String    @db.ObjectId
   action        String
@@ -199,9 +235,34 @@ model AuditLog {
   details       Json?
   
   // 关系
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
   user          User      @relation(fields: [userId], references: [id])
+  @@index([tenantId])
   @@index([userId])
   @@index([action])
+  @@index([tenantId, timestamp])
+}
+
+model JudgeAssignment {
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String    @db.ObjectId
+  judgeId             String    @db.ObjectId
+  competitionId       String    @db.ObjectId
+  authorizedPrograms  Json?     @default("[]")
+  assignedAt          DateTime  @default(now())
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  isActive            Boolean   @default(true)
+  
+  // 关系
+  tenant              Tenant    @relation(fields: [tenantId], references: [id])
+  judge               User      @relation(fields: [judgeId], references: [id])
+  competition         Competition @relation(fields: [competitionId], references: [id])
+  @@index([tenantId])
+  @@index([judgeId])
+  @@index([competitionId])
+  @@index([isActive])
+  @@unique([judgeId, competitionId])
 }
 
 // 大屏幕显示配置模型

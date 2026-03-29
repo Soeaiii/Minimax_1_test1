@@ -31,8 +31,10 @@ export default function DashboardLayout({
       return;
     }
     
-    if (session?.user?.role !== 'ADMIN') {
-      // 非管理员用户重定向到登录页
+    // 检查用户是否有访问dashboard的权限
+    const allowedRoles = ['ADMIN', 'ORGANIZER'];
+    if (!session?.user?.role || !allowedRoles.includes(session.user.role)) {
+      // 无权限用户重定向到登录页
       router.push('/auth/login?error=access_denied');
       return;
     }
@@ -50,8 +52,9 @@ export default function DashboardLayout({
     );
   }
   
-  // 未登录或非管理员用户
-  if (status === 'unauthenticated' || session?.user?.role !== 'ADMIN') {
+  // 未登录或无权限用户
+  const allowedRoles = ['ADMIN', 'ORGANIZER'];
+  if (status === 'unauthenticated' || !session?.user?.role || !allowedRoles.includes(session.user.role)) {
     return (
       <div className="flex h-screen w-screen items-center justify-center">
         <div className="text-center">
@@ -71,4 +74,4 @@ export default function DashboardLayout({
       </div>
     </div>
   );
-} 
+}

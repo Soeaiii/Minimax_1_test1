@@ -162,8 +162,8 @@ export async function POST(request: Request) {
       // 记录审计日志
       await tx.auditLog.create({
         data: {
-          // @ts-ignore
           userId: session.user.id,
+          tenantId: session.user.tenantId,
           action: 'CREATE',
           targetId: newParticipant.id,
           details: { 
@@ -185,4 +185,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-} 
+}

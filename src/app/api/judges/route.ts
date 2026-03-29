@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     }
 
     // 检查邮箱是否已存在
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.user.findFirst({
       where: { email },
     });
 
@@ -44,12 +44,27 @@ export async function POST(request: Request) {
     // 加密密码
     const hashedPassword = await bcrypt.hash(password, 12);
 
+    // 获取默认租户
+    const defaultTenant = await prisma.tenant.findFirst({
+      where: { name: 'Default' },
+    });
+
+    if (!defaultTenant) {
+      return NextResponse.json(
+        { error: '系统配置错误：未找到默认租户' },
+        { status: 500 }
+      );
+    }
+
     // 创建裁判用户
     const judgeData: any = {
       name,
       email,
       password: hashedPassword,
       role: 'JUDGE',
+      tenantId: defaultTenant.id,
+      permissions: ['JUDGE_PROGRAMS'],
+      isActive: true,
     };
 
     if (bio) judgeData.bio = bio;
@@ -72,6 +87,7 @@ export async function POST(request: Request) {
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
+        tenantId: session.user.tenantId,
         action: 'CREATE_JUDGE',
         targetId: judge.id,
         details: {
@@ -148,4 +164,4 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-} 
+}

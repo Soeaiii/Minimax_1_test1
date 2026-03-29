@@ -185,6 +185,7 @@ export async function POST(
       // 记录审计日志
       await prisma.auditLog.create({
         data: {
+          tenantId: session.user.tenantId,
           userId: session.user.id,
           action: 'UPDATE_SCORE',
           targetId: updatedScore.id,
@@ -223,6 +224,7 @@ export async function POST(
       // 记录审计日志
       await prisma.auditLog.create({
         data: {
+          tenantId: session.user.tenantId,
           userId: session.user.id,
           action: 'CREATE_SCORE',
           targetId: newScore.id,
@@ -318,6 +320,7 @@ export async function DELETE(
     // 记录审计日志
     await prisma.auditLog.create({
       data: {
+        tenantId: session.user.tenantId,
         userId: session.user.id,
         action: 'DELETE_SCORE',
         targetId: scoreId,
@@ -337,4 +340,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-} 
+}

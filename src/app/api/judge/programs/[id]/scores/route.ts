@@ -124,6 +124,7 @@ export async function POST(
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
+        tenantId: session.user.tenantId,
         action: 'SCORE_PROGRAM',
         targetId: params.id,
         details: {
@@ -142,4 +143,4 @@ export async function POST(
       { status: 500 }
     );
   }
-} 
+}

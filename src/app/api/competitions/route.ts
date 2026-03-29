@@ -93,6 +93,8 @@ export async function POST(request: Request) {
         name: body.name,
         description: body.description,
         organizerId: session.user.id,
+        tenantId: session.user.tenantId,
+        creatorId: session.user.id,
         startTime: new Date(body.startTime),
         endTime: new Date(body.endTime),
         status: body.status,
@@ -114,6 +116,7 @@ export async function POST(request: Request) {
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
+        tenantId: session.user.tenantId,
         action: 'CREATE_COMPETITION',
         targetId: competition.id,
         details: { competitionData: body },
@@ -128,4 +131,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-} 
+}

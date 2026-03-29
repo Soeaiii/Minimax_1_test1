@@ -11,6 +11,22 @@ async function main() {
     await prisma.$connect()
     console.log('✓ 数据库连接成功')
 
+    // 创建默认租户
+    const defaultTenant = await prisma.tenant.create({
+      data: {
+        name: '默认租户',
+        domain: 'default.example.com',
+        settings: {
+          allowRegistration: true,
+          maxUsers: 1000,
+          features: ['competitions', 'scoring', 'reports']
+        },
+        isActive: true,
+      },
+    })
+    
+    console.log('✓ 已创建默认租户:', defaultTenant.name)
+
     // 创建一个测试用户
     const hashedPassword = await bcrypt.hash('123456', 12)
     
@@ -20,6 +36,17 @@ async function main() {
         email: 'admin@example.com',
         password: hashedPassword,
         role: 'ADMIN',
+        tenantId: defaultTenant.id,
+        permissions: [
+          'user:create', 'user:read', 'user:update', 'user:delete',
+          'competition:create', 'competition:read', 'competition:update', 'competition:delete',
+          'program:create', 'program:read', 'program:update', 'program:delete',
+          'participant:create', 'participant:read', 'participant:update', 'participant:delete',
+          'score:create', 'score:read', 'score:update', 'score:delete',
+          'judge:assign', 'judge:remove',
+          'system:settings', 'data:export', 'audit:read'
+        ],
+        isActive: true,
       },
     })
     
@@ -60,4 +87,4 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect()
-  }) 
+  })

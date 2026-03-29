@@ -326,6 +326,7 @@ export async function POST(request: NextRequest) {
       await tx.auditLog.createMany({
         data: createdPrograms.map((program, index) => ({
           // @ts-ignore
+          tenantId: session.user.tenantId,
           userId: session.user.id,
           action: 'BATCH_IMPORT_PROGRAM',
           targetId: program.id,
@@ -350,6 +351,7 @@ export async function POST(request: NextRequest) {
     await prisma.auditLog.create({
       data: {
         // @ts-ignore
+        tenantId: session.user.tenantId,
         userId: session.user.id,
         action: 'BATCH_IMPORT_COMPLETE',
         targetId: 'programs',
@@ -383,4 +385,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

@@ -225,6 +225,7 @@ export async function PUT(
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
+        tenantId: session.user.tenantId,
         action: 'UPDATE_DISPLAY_SETTINGS',
         targetId: params.competitionId,
         details: {
@@ -242,4 +243,4 @@ export async function PUT(
       { status: 500 }
     );
   }
-} 
+}

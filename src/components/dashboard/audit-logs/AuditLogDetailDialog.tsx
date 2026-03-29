@@ -65,10 +65,33 @@ export function AuditLogDetailDialog({ log, open, onOpenChange }: AuditLogDetail
     });
   };
 
-  const formatDetails = (details: any) => {
-    if (!details) return null;
+  const formatDetails = (details: any): string => {
+    if (!details) return '无详情';
     if (typeof details === 'string') return details;
-    return JSON.stringify(details, null, 2);
+    if (typeof details === 'number' || typeof details === 'boolean') return String(details);
+    
+    // 处理对象类型，确保始终返回字符串
+    if (typeof details === 'object') {
+      try {
+        // 如果是数组，转换为字符串
+        if (Array.isArray(details)) {
+          return JSON.stringify(details, null, 2);
+        }
+        // 如果是普通对象，转换为字符串
+        return JSON.stringify(details, null, 2);
+      } catch (error) {
+        console.error('Error formatting details:', error);
+        return '[无法格式化的对象]';
+      }
+    }
+    
+    // 兜底处理，确保返回字符串
+    try {
+      return String(details);
+    } catch (error) {
+      console.error('Error converting details to string:', error);
+      return '[无法显示的内容]';
+    }
   };
 
   return (
@@ -151,7 +174,15 @@ export function AuditLogDetailDialog({ log, open, onOpenChange }: AuditLogDetail
               
               <div className="bg-muted p-4 rounded-md">
                 <pre className="text-sm whitespace-pre-wrap overflow-x-auto">
-                  {formatDetails(log.details)}
+                  {(() => {
+                    const formattedDetails = formatDetails(log.details);
+                    // 确保返回的是字符串类型
+                    if (typeof formattedDetails !== 'string') {
+                      console.error('formatDetails did not return a string:', formattedDetails);
+                      return '[格式化错误]';
+                    }
+                    return formattedDetails;
+                  })()}
                 </pre>
               </div>
               
@@ -185,4 +216,4 @@ export function AuditLogDetailDialog({ log, open, onOpenChange }: AuditLogDetail
       </DialogContent>
     </Dialog>
   );
-} 
+}

@@ -67,8 +67,8 @@ export async function POST() {
       if (fixedParticipants > 0 || fixedPrograms > 0) {
         await tx.auditLog.create({
           data: {
-            // @ts-ignore
             userId: session.user.id,
+            tenantId: session.user.tenantId,
             action: 'FIX_DUPLICATE_IDS',
             targetId: 'system',
             details: {
@@ -95,4 +95,4 @@ export async function POST() {
       { status: 500 }
     );
   }
-} 
+}

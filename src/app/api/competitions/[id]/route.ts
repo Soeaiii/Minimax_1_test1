@@ -235,6 +235,7 @@ export async function PUT(
         await prisma.auditLog.create({
           data: {
             userId: session.user.id,
+            tenantId: session.user.tenantId,
             action: 'UPDATE_COMPETITION',
             targetId: id,
             details: {
@@ -352,6 +353,7 @@ export async function DELETE(
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
+        tenantId: session.user.tenantId,
         action: 'ARCHIVE_COMPETITION',
         targetId: id,
         details: { competition },
@@ -449,4 +451,4 @@ export async function PATCH(
       { status: 500 }
     );
   }
-} 
+}

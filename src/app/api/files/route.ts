@@ -122,6 +122,7 @@ export async function DELETE(request: NextRequest) {
           await prisma.auditLog.create({
             data: {
               userId: session.user.id,
+              tenantId: session.user.tenantId,
               action: 'DELETE_FILE',
               targetId: file.id,
               details: {
@@ -160,4 +161,4 @@ export async function DELETE(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

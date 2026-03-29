@@ -120,6 +120,7 @@ export async function DELETE(
       await tx.auditLog.create({
         data: {
           userId: session.user.id,
+          tenantId: session.user.tenantId,
           action: 'DELETE_COMPETITION',
           targetId: id,
           details: {
@@ -175,4 +176,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-} 
+}

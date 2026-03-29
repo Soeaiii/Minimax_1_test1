@@ -42,7 +42,7 @@ export async function DELETE(request: Request) {
     if (programsWithScores.length > 0 && !force) {
       if (skipWithScores) {
         // 只删除没有评分记录的节目
-        await deletePrograms(programsWithoutScores.map(p => p.id), session.user.id);
+        await deletePrograms(programsWithoutScores.map(p => p.id), session);
         
         return NextResponse.json({
           success: true,
@@ -65,7 +65,7 @@ export async function DELETE(request: Request) {
     }
     
     // 没有评分记录或者是强制删除模式，删除所有节目
-    const result = await deletePrograms(allPrograms.map(p => p.id), session.user.id);
+    const result = await deletePrograms(allPrograms.map(p => p.id), session);
     
     return NextResponse.json({
       success: true,
@@ -84,7 +84,7 @@ export async function DELETE(request: Request) {
 }
 
 // 辅助函数：删除指定ID的节目
-async function deletePrograms(programIds: string[], userId: string) {
+async function deletePrograms(programIds: string[], session: any) {
   // 使用事务确保所有操作成功
   const result = await prisma.$transaction(async (tx) => {
     // 如果需要强制删除，先删除评分记录
@@ -131,8 +131,10 @@ async function deletePrograms(programIds: string[], userId: string) {
   // 记录审计日志
   await prisma.auditLog.create({
     data: {
-      userId: userId,
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
       action: 'DELETE_ALL_PROGRAMS',
+      targetId: 'programs',
       details: {
         programCount: result.count,
         programIds: programIds
@@ -141,4 +143,4 @@ async function deletePrograms(programIds: string[], userId: string) {
   });
   
   return result;
-} 
+}

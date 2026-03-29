@@ -220,15 +220,24 @@ export default function AuditLogsPage() {
   };
   
   // 格式化详情信息
-  const formatDetails = (details: any) => {
+  const formatDetails = (details: any): string => {
     if (!details) return '无详情';
     if (typeof details === 'string') return details;
     if (typeof details === 'object') {
-      return Object.entries(details)
-        .map(([key, value]) => `${key}: ${value}`)
-        .join(', ');
+      try {
+        return Object.entries(details)
+          .map(([key, value]) => {
+            if (typeof value === 'object' && value !== null) {
+              return `${key}: ${JSON.stringify(value)}`;
+            }
+            return `${key}: ${String(value)}`;
+          })
+          .join(', ');
+      } catch (error) {
+        return JSON.stringify(details);
+      }
     }
-    return JSON.stringify(details);
+    return String(details);
   };
 
   return (
@@ -527,4 +536,4 @@ export default function AuditLogsPage() {
       />
     </div>
   );
-} 
+}

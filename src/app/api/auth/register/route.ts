@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     const { name, email, password, role } = result.data;
     
     // 检查邮箱是否已存在
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.user.findFirst({
       where: { email },
     });
     
@@ -42,6 +42,18 @@ export async function POST(request: Request) {
     // 加密密码
     const hashedPassword = await bcrypt.hash(password, 10);
     
+    // 获取默认租户
+    const defaultTenant = await prisma.tenant.findFirst({
+      where: { domain: 'default.example.com' },
+    });
+    
+    if (!defaultTenant) {
+      return NextResponse.json(
+        { error: '系统配置错误，请联系管理员' },
+        { status: 500 }
+      );
+    }
+
     // 创建用户
     const user = await prisma.user.create({
       data: {
@@ -49,6 +61,9 @@ export async function POST(request: Request) {
         email,
         password: hashedPassword,
         role,
+        tenantId: defaultTenant.id,
+        permissions: role === 'ORGANIZER' ? ['competitions:manage', 'participants:manage'] : ['competitions:view'],
+        isActive: true,
       },
     });
     
@@ -66,4 +81,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-} 
+}

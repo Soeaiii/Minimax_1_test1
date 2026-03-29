@@ -71,8 +71,8 @@ export async function DELETE() {
       // 4. 记录审计日志
       await tx.auditLog.create({
         data: {
-          // @ts-ignore
           userId: session.user.id,
+          tenantId: session.user.tenantId,
           action: 'DELETE_ALL_PARTICIPANTS',
           targetId: 'participants',
           details: {
@@ -108,4 +108,4 @@ export async function DELETE() {
       { status: 500 }
     );
   }
-} 
+}
