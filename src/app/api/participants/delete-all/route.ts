@@ -25,8 +25,11 @@ export async function DELETE() {
     let updatedPrograms = 0;
 
     await prisma.$transaction(async (tx) => {
-      // 1. 获取所有参与者信息用于审计日志
+      // 1. 获取当前租户的所有参与者信息用于审计日志
       const allParticipants = await tx.participant.findMany({
+        where: {
+          tenantId: session.user.tenantId
+        },
         select: {
           id: true,
           name: true,
@@ -41,9 +44,10 @@ export async function DELETE() {
         return;
       }
 
-      // 2. 清理所有节目中的参与者关联
+      // 2. 清理当前租户节目中已删除参与者的关联
       const allPrograms = await tx.program.findMany({
         where: {
+          tenantId: session.user.tenantId,
           participantIds: {
             isEmpty: false
           }

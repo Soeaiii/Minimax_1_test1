@@ -24,7 +24,9 @@ export async function GET(request: Request) {
     const search = searchParams.get('search');
     
     // 构建查询条件
-    const where: any = {};
+    const where: any = {
+      tenantId: session.user.tenantId
+    };
     if (competitionId) {
       where.competitionId = competitionId;
     }
@@ -62,6 +64,14 @@ export async function GET(request: Request) {
     }
     
     // 优化查询 - 分步获取数据避免重复查询
+    // 解析分页参数
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '20', 10)));
+    const skip = (page - 1) * pageSize;
+
+    // 获取总数
+    const total = await prisma.program.count({ where });
+
     const programs = await prisma.program.findMany({
       where,
       include: {
@@ -77,6 +87,8 @@ export async function GET(request: Request) {
         { competitionId: 'asc' },
         { order: 'asc' },
       ],
+      skip,
+      take: pageSize,
     });
 
     // 批量获取所有参与者信息
@@ -109,8 +121,16 @@ export async function GET(request: Request) {
         .map(id => participantMap.get(id))
         .filter(Boolean)
     }));
-    
-    return NextResponse.json(programsWithParticipants);
+
+    return NextResponse.json({
+      data: programsWithParticipants,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    });
   } catch (error) {
     console.error('Error fetching programs:', error);
     return NextResponse.json(
@@ -139,9 +159,9 @@ export async function POST(req: Request) {
       customFields,
     } = body;
 
-    // 验证比赛存在
+    // 验证比赛存在且属于同一租户
     const competition = await prisma.competition.findUnique({
-      where: { id: competitionId },
+      where: { id: competitionId, tenantId: session.user.tenantId },
     });
     if (!competition) {
       return NextResponse.json({ error: "比赛不存在" }, { status: 404 });
@@ -160,6 +180,7 @@ export async function POST(req: Request) {
     // 创建节目
     const program = await prisma.program.create({
       data: {
+        tenantId: session.user.tenantId,
         name,
         description,
         competitionId,

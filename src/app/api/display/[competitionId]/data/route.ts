@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import crypto from 'crypto';
 
 interface JudgeScore {
   judge: {
@@ -24,27 +25,33 @@ export async function GET(
 ) {
   try {
     const params = await context.params;
+    const { searchParams } = new URL(request.url);
+    const token = searchParams.get('token');
 
-    // 获取显示设置
-    let displaySettings = await prisma.displaySettings.findUnique({
-      where: {
-        competitionId: params.competitionId,
-      },
-      include: {
-        backgroundImage: {
-          select: {
-            id: true,
-            filename: true,
-            path: true,
-          },
-        },
-      },
+    // 并行获取显示设置和比赛信息
+    const competition = await prisma.competition.findUnique({
+      where: { id: params.competitionId },
+      select: { id: true, name: true, description: true, status: true, tenantId: true },
+    });
+
+    if (!competition) {
+      return NextResponse.json({ error: '比赛不存在' }, { status: 404 });
+    }
+
+    // 获取显示设置（验证租户）
+    const displaySettingsResult = await prisma.displaySettings.findUnique({
+      where: { competitionId: params.competitionId },
+      include: { backgroundImage: { select: { id: true, filename: true, path: true } } },
     });
 
     // 如果没有显示设置，创建默认设置
+    let displaySettings = displaySettingsResult;
     if (!displaySettings) {
+      // 生成公开Token
+      const publicToken = crypto.randomBytes(16).toString('hex');
       displaySettings = await prisma.displaySettings.create({
         data: {
+          tenantId: competition.tenantId,
           competitionId: params.competitionId,
           showJudgeScores: true,
           showParticipants: true,
@@ -64,168 +71,77 @@ export async function GET(
           participantCardGap: 16,
           participantCardRowGap: 32,
           averageScoreFontSize: 192,
+          publicToken,
         },
-        include: {
-          backgroundImage: {
-            select: {
-              id: true,
-              filename: true,
-              path: true,
-            },
-          },
-        },
+        include: { backgroundImage: { select: { id: true, filename: true, path: true } } },
+      });
+    } else if (!displaySettings.publicToken) {
+      // 如果已有设置但没有Token，生成一个
+      const publicToken = crypto.randomBytes(16).toString('hex');
+      displaySettings = await prisma.displaySettings.update({
+        where: { competitionId: params.competitionId },
+        data: { publicToken },
+        include: { backgroundImage: { select: { id: true, filename: true, path: true } } },
       });
     }
 
-    // 获取比赛信息
-    const competition = await prisma.competition.findUnique({
-      where: {
-        id: params.competitionId,
-      },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        status: true,
-      },
-    });
-
-    if (!competition) {
-      return NextResponse.json(
-        { error: '比赛不存在' },
-        { status: 404 }
-      );
+    // 验证Token（如果设置了Token则必须验证）
+    if (displaySettings.publicToken) {
+      if (!token || token !== displaySettings.publicToken) {
+        return NextResponse.json({ error: '无效的访问Token' }, { status: 401 });
+      }
     }
 
-    // 获取当前节目信息
-    let currentProgram = null;
-    if (displaySettings.currentProgramId) {
-      currentProgram = await prisma.program.findUnique({
-        where: {
-          id: displaySettings.currentProgramId,
-        },
-        select: {
-          id: true,
-          name: true,
-          description: true,
-          order: true,
-          participants: {
-            select: {
-              id: true,
-              name: true,
-              team: true,
-            },
-          },
-          customFields: true,
-        },
-      });
-    }
-
-    // 获取裁判信息
-    const judges = await prisma.user.findMany({
-      where: {
-        role: 'JUDGE',
-      },
-      select: {
-        id: true,
-        name: true,
-        avatar: true,
-      },
-    });
+    // 并行获取当前节目、裁判和所有节目列表
+    const [currentProgram, judges, programs] = await Promise.all([
+      displaySettings.currentProgramId
+        ? prisma.program.findUnique({
+            where: { id: displaySettings.currentProgramId },
+            select: { id: true, name: true, description: true, order: true, participants: { select: { id: true, name: true, team: true } }, customFields: true },
+          })
+        : Promise.resolve(null),
+      prisma.user.findMany({ where: { role: 'JUDGE' }, select: { id: true, name: true, avatar: true } }),
+      prisma.program.findMany({
+        where: { competitionId: params.competitionId },
+        select: { id: true, name: true, order: true, currentStatus: true, participants: { select: { id: true, name: true, team: true } }, customFields: true },
+        orderBy: { order: 'asc' },
+      }),
+    ]);
 
     // 获取当前节目的裁判评分
     let judgeScores: JudgeScore[] = [];
     if (currentProgram && displaySettings.showJudgeScores) {
       const scores = await prisma.score.findMany({
-        where: {
-          programId: currentProgram.id,
-        },
+        where: { programId: currentProgram.id },
         include: {
-          judge: {
-            select: {
-              id: true,
-              name: true,
-              avatar: true,
-            },
-          },
-          scoringCriteria: {
-            select: {
-              id: true,
-              name: true,
-              weight: true,
-              maxScore: true,
-            },
-          },
+          judge: { select: { id: true, name: true, avatar: true } },
+          scoringCriteria: { select: { id: true, name: true, weight: true, maxScore: true } },
         },
       });
 
       // 按裁判分组计算总分
       const judgeScoreMap = new Map();
-      
+
       scores.forEach(score => {
         const judgeId = score.judgeId;
         if (!judgeScoreMap.has(judgeId)) {
-          judgeScoreMap.set(judgeId, {
-            judge: score.judge,
-            scores: [],
-            totalScore: 0,
-          });
+          judgeScoreMap.set(judgeId, { judge: score.judge, scores: [], totalScore: 0 });
         }
-        
         const judgeData = judgeScoreMap.get(judgeId);
-        judgeData.scores.push({
-          criteriaId: score.scoringCriteriaId,
-          criteriaName: score.scoringCriteria.name,
-          value: score.value,
-          weight: score.scoringCriteria.weight,
-          maxScore: score.scoringCriteria.maxScore,
-        });
+        judgeData.scores.push({ criteriaId: score.scoringCriteriaId, criteriaName: score.scoringCriteria.name, value: score.value, weight: score.scoringCriteria.weight, maxScore: score.scoringCriteria.maxScore });
       });
 
       // 计算每个裁判的平均分
       judgeScores = Array.from(judgeScoreMap.values()).map(judgeData => {
-        const totalScore = judgeData.scores.length > 0 
-          ? judgeData.scores.reduce((sum: number, score: any) => sum + score.value, 0) / judgeData.scores.length
-          : 0;
-          
-        return {
-          judge: judgeData.judge,
-          totalScore: Math.round(totalScore * 100) / 100, // 保留两位小数
-          scores: judgeData.scores,
-        };
+        const totalScore = judgeData.scores.length > 0 ? judgeData.scores.reduce((sum: number, score: { value: number }) => sum + score.value, 0) / judgeData.scores.length : 0;
+        return { judge: judgeData.judge, totalScore: Math.round(totalScore * 100) / 100, scores: judgeData.scores };
       });
 
       // 根据选择的评委过滤结果
       if (displaySettings.selectedJudgeIds && displaySettings.selectedJudgeIds.length > 0) {
-        judgeScores = judgeScores.filter(judgeScore => 
-          displaySettings.selectedJudgeIds.includes(judgeScore.judge.id)
-        );
+        judgeScores = judgeScores.filter(judgeScore => displaySettings!.selectedJudgeIds.includes(judgeScore.judge.id));
       }
     }
-
-    // 获取所有节目列表（用于管理员控制）
-    const programs = await prisma.program.findMany({
-      where: {
-        competitionId: params.competitionId,
-      },
-      select: {
-        id: true,
-        name: true,
-        order: true,
-        currentStatus: true,
-        participants: {
-          select: {
-            id: true,
-            name: true,
-            team: true,
-          },
-        },
-        customFields: true,
-      },
-      orderBy: {
-        order: 'asc',
-      },
-    });
 
     const displayData = {
       settings: displaySettings,

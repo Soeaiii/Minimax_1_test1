@@ -6,6 +6,12 @@ import { authOptions } from '@/lib/auth';
 // 获取所有选手
 export async function GET(request: Request) {
   try {
+    // @ts-ignore
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: '未授权访问' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
     const team = searchParams.get('team');
@@ -13,9 +19,12 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '12');
     
     const skip = (page - 1) * limit;
-    
-    let where: any = {};
-    
+
+    // 添加租户过滤 - 必须放在最外层
+    let where: any = {
+      tenantId: session.user.tenantId
+    };
+
     // 构建搜索条件
     const searchConditions = [];
     if (search) {
@@ -140,6 +149,7 @@ export async function POST(request: Request) {
     const participant = await prisma.$transaction(async (tx) => {
       const newParticipant = await tx.participant.create({
         data: {
+          tenantId: session.user.tenantId,
           name: name.trim(),
           bio: bio?.trim() || undefined,
           team: team?.trim() || undefined,

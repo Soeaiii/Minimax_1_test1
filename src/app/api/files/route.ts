@@ -8,7 +8,15 @@ import { authOptions } from '@/lib/auth';
 
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: '未授权访问' }, { status: 401 });
+    }
+
     const files = await prisma.file.findMany({
+      where: {
+        tenantId: session.user.tenantId
+      },
       include: {
         programs: {
           select: {
@@ -58,12 +66,13 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // 获取要删除的文件信息
+    // 获取要删除的文件信息（仅当前租户）
     const filesToDelete = await prisma.file.findMany({
       where: {
         id: {
           in: fileIds,
         },
+        tenantId: session.user.tenantId,
       },
       include: {
         programs: true,

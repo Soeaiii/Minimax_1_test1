@@ -68,9 +68,10 @@ export async function POST(request: NextRequest) {
         return; // 没有有效数据，直接返回
       }
 
-      // 2. 批量检查重复数据
+      // 2. 批量检查重复数据（仅当前租户）
       const existingParticipants = await tx.participant.findMany({
         where: {
+          tenantId: session.user.tenantId,
           OR: validRows.map(row => ({
             name: row.name,
             team: row.team || null
@@ -106,6 +107,7 @@ export async function POST(request: NextRequest) {
       try {
         const createManyResult = await tx.participant.createMany({
           data: dataToImport.map(row => ({
+            tenantId: session.user.tenantId,
             name: row.name,
             bio: row.bio,
             team: row.team,

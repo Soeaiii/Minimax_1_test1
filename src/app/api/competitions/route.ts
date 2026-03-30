@@ -22,7 +22,9 @@ export async function GET(request: Request) {
     const status = searchParams.get('status');
     
     // 构建查询条件
-    const where: any = {};
+    const where: any = {
+      tenantId: session.user.tenantId
+    };
     if (status) {
       where.status = status.toUpperCase();
     }

@@ -6,16 +6,38 @@ import { authOptions } from '@/lib/auth';
 // 获取排名
 export async function GET(request: Request) {
   try {
+    // @ts-ignore 暂时忽略类型错误
+    const session = await getServerSession(authOptions);
+
+    if (!session) {
+      return NextResponse.json(
+        { error: '未授权访问' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const competitionId = searchParams.get('competitionId');
-    
+
     if (!competitionId) {
       return NextResponse.json(
         { error: '必须提供比赛ID' },
         { status: 400 }
       );
     }
-    
+
+    // 验证比赛属于同一租户
+    const competition = await prisma.competition.findUnique({
+      where: { id: competitionId, tenantId: session.user.tenantId },
+    });
+
+    if (!competition) {
+      return NextResponse.json(
+        { error: '比赛不存在' },
+        { status: 404 }
+      );
+    }
+
     const rankings = await prisma.ranking.findMany({
       where: { competitionId },
       include: {
@@ -25,7 +47,7 @@ export async function GET(request: Request) {
         rank: 'asc',
       },
     });
-    
+
     return NextResponse.json(rankings);
   } catch (error) {
     console.error('Error fetching rankings:', error);
@@ -65,7 +87,7 @@ export async function POST(request: Request) {
     
     // 获取比赛信息
     const competition = await prisma.competition.findUnique({
-      where: { id: competitionId },
+      where: { id: competitionId, tenantId: session.user.tenantId },
       include: {
         programs: {
           where: { currentStatus: 'COMPLETED' },
@@ -133,6 +155,7 @@ export async function POST(request: Request) {
               updateType: 'AUTO',
               competitionId,
               programId: score.programId,
+              tenantId: session.user.tenantId,
             },
           })
         )

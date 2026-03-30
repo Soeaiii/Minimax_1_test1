@@ -115,6 +115,13 @@ Role permissions:
 - `GET /api/competitions/[id]/stats` - Competition statistics
 - `GET /api/competitions/[id]/judges-and-criteria` - Judges and scoring criteria
 
+### Rankings
+- `GET /api/rankings` - List rankings (session auth + tenant isolation)
+- `POST /api/rankings` - Create/refresh rankings
+- `GET /api/rankings/[id]` - Get ranking detail
+- `PUT /api/rankings/[id]` - Manual ranking adjustment
+- `POST /api/rankings/[id]` - Refresh competition rankings
+
 ### Programs
 - `GET/POST /api/programs` - List/Create programs
 - `GET/PUT/DELETE /api/programs/[id]` - CRUD operations
@@ -122,12 +129,19 @@ Role permissions:
 - `POST /api/programs/batch-import` - Excel batch import
 
 ### Display (Real-time)
-- `GET /api/display/[competitionId]/data` - Display data with auto-created settings
+- `GET /api/display/[competitionId]/data` - Display data with auto-created settings (token-based tenant isolation)
 - `GET /api/display/[competitionId]/stream` - SSE endpoint for real-time updates
 
 ### Judge
 - `GET /api/judge/competitions` - Judge's assigned competitions
 - `POST /api/judge/programs/[id]/scores` - Submit scores
+
+### Admin - Tenant Management
+- `GET /api/admin/tenants` - List all tenants (pagination, search, filter)
+- `POST /api/admin/tenants` - Create new tenant
+- `GET /api/admin/tenants/[id]` - Get tenant detail with user/competition counts
+- `PUT /api/admin/tenants/[id]` - Update tenant (name, domain, settings, isActive)
+- `DELETE /api/admin/tenants/[id]` - Soft delete tenant (sets isActive=false)
 
 ## Key Features
 

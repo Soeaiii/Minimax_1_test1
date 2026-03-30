@@ -12,7 +12,7 @@ export async function GET(
     const { id } = await params;
     
     const program = await prisma.program.findUnique({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       include: {
         competition: true,
         participants: true,
@@ -71,9 +71,9 @@ export async function PUT(
       customFields,
     } = body;
     
-    // 检查节目是否存在
+    // 检查节目是否存在且属于同一租户
     const existingProgram = await prisma.program.findUnique({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       include: {
         competition: true,
         participants: true,
@@ -221,14 +221,14 @@ export async function DELETE(
 
     const { id } = await params;
     
-    // 检查节目是否存在
+    // 检查节目是否存在且属于同一租户
     const existingProgram = await prisma.program.findUnique({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       include: {
         competition: true,
       },
     });
-    
+
     if (!existingProgram) {
       return NextResponse.json(
         { error: '节目不存在' },
@@ -243,7 +243,7 @@ export async function DELETE(
         { status: 403 }
       );
     }
-    
+
     // 删除节目
     await prisma.program.delete({
       where: { id },
@@ -306,7 +306,7 @@ export async function PATCH(
     
     // 简单检查节目是否存在，不使用复杂的include
     const existingProgram = await prisma.program.findUnique({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       select: {
         id: true,
         currentStatus: true,

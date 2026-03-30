@@ -115,32 +115,41 @@ enum RankingUpdateMode {
 
 model ScoringCriteria {
   id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId      String    @db.ObjectId
   name          String
   weight        Float
   maxScore      Float
   competitionId String    @db.ObjectId
-  
+
   // 关系
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
   competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   scores        Score[]
+  @@index([tenantId])
+  @@index([competitionId])
 }
 
 model Participant {
   id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId  String    @db.ObjectId
   name      String
   bio       String?
   team      String?
   contact   String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
-  
+
   // 关系
+  tenant        Tenant     @relation(fields: [tenantId], references: [id])
   programIds  String[] @db.ObjectId
   programs    Program[] @relation("ParticipantPrograms", fields: [programIds], references: [id])
+  @@index([tenantId])
+  @@index([team])
 }
 
 model Program {
   id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId      String    @db.ObjectId
   name          String
   description   String?
   order         Int
@@ -149,15 +158,17 @@ model Program {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   customFields  Json?     // 添加自定义字段支持，存储为JSON格式
-  
+
   // 关系
-  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  tenant          Tenant       @relation(fields: [tenantId], references: [id])
+  competition     Competition   @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   participantIds String[]  @db.ObjectId
   participants  Participant[] @relation("ParticipantPrograms", fields: [participantIds], references: [id])
   fileIds       String[]   @db.ObjectId
   attachments   File[]     @relation("ProgramFiles", fields: [fileIds], references: [id])
   scores        Score[]
   ranking       Ranking?
+  @@index([tenantId])
   @@index([competitionId])
 }
 
@@ -169,6 +180,7 @@ enum ProgramStatus {
 
 model Score {
   id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId          String    @db.ObjectId
   value             Float
   comment           String?
   programId         String    @db.ObjectId
@@ -176,18 +188,22 @@ model Score {
   judgeId           String    @db.ObjectId
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
-  
+
   // 关系
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
   program           Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
   scoringCriteria   ScoringCriteria @relation(fields: [scoringCriteriaId], references: [id], onDelete: Cascade)
   judge             User      @relation("JudgeScores", fields: [judgeId], references: [id])
+  @@index([tenantId])
   @@index([programId])
   @@index([scoringCriteriaId])
   @@index([judgeId])
+  @@index([programId, scoringCriteriaId])
 }
 
 model Ranking {
   id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId      String    @db.ObjectId
   rank          Int
   totalScore    Float
   updateType    UpdateType @default(AUTO)
@@ -195,10 +211,12 @@ model Ranking {
   programId     String    @db.ObjectId @unique
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  
+
   // 关系
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
   competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   program       Program    @relation(fields: [programId], references: [id], onDelete: Cascade)
+  @@index([tenantId])
   @@index([competitionId])
 }
 
@@ -209,19 +227,22 @@ enum UpdateType {
 
 model File {
   id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId      String    @db.ObjectId
   filename      String
   path          String
   mimetype      String
   size          Int
   createdAt     DateTime  @default(now())
-  
+
   // 关系
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
   programIds    String[]  @db.ObjectId
   programs      Program[] @relation("ProgramFiles", fields: [programIds], references: [id])
   competitionIds String[] @db.ObjectId
   competitions  Competition[] @relation("CompetitionFiles", fields: [competitionIds], references: [id])
   backgroundImageCompetitions Competition[] @relation("BackgroundImage")
   displayBackgrounds DisplaySettings[] @relation("DisplayBackground")
+  @@index([tenantId])
   @@index([filename])
 }
 
@@ -241,6 +262,7 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@index([tenantId, timestamp])
+  @@index([timestamp])
 }
 
 model JudgeAssignment {
@@ -268,6 +290,7 @@ model JudgeAssignment {
 // 大屏幕显示配置模型
 model DisplaySettings {
   id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String    @db.ObjectId
   competitionId       String    @db.ObjectId @unique
   currentProgramId    String?   @db.ObjectId
   backgroundImageId   String?   @db.ObjectId
@@ -305,12 +328,15 @@ model DisplaySettings {
   selectedJudgeIds    String[]  @db.ObjectId @default([]) // 选中的评委ID列表
   selectedParticipantFieldNames Json? @default("[]") // 选手信息要显示的自定义字段名称
   averageScoreFontSize    Int? @default(192) // 最终得分字体大小(px)
+  publicToken       String?   // 大屏幕公开访问Token，用于租户隔离（不设置则使用旧方式兼容）
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
-  
+
   // 关系
+  tenant              Tenant    @relation(fields: [tenantId], references: [id])
   competition         Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   backgroundImage     File?     @relation("DisplayBackground", fields: [backgroundImageId], references: [id])
+  @@index([tenantId])
 }
 
 enum DisplayTheme {

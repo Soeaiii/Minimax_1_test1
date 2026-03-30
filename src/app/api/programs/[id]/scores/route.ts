@@ -21,14 +21,15 @@ export async function GET(
 
     const { id: programId } = await params;
 
-    // 检查节目是否存在
+    // 检查节目是否存在且属于同一租户
     const program = await prisma.program.findUnique({
-      where: { id: programId },
+      where: { id: programId, tenantId: session.user.tenantId },
       include: {
         competition: {
           select: {
             id: true,
             organizerId: true,
+            tenantId: true,
           }
         }
       }
@@ -104,14 +105,15 @@ export async function POST(
       );
     }
 
-    // 检查节目是否存在
+    // 检查节目是否存在且属于同一租户
     const program = await prisma.program.findUnique({
-      where: { id: programId },
+      where: { id: programId, tenantId: session.user.tenantId },
       include: {
         competition: {
           select: {
             id: true,
             organizerId: true,
+            tenantId: true,
           }
         }
       }
@@ -140,6 +142,14 @@ export async function POST(
     if (value < 0 || isNaN(value)) {
       return NextResponse.json(
         { error: '分数必须是大于等于0的数字' },
+        { status: 400 }
+      );
+    }
+
+    // 验证分数不超过最大值
+    if (value > scoringCriteria.maxScore) {
+      return NextResponse.json(
+        { error: `分数不能超过评分标准的最大值(${scoringCriteria.maxScore})` },
         { status: 400 }
       );
     }
@@ -203,6 +213,7 @@ export async function POST(
       // 创建新评分
       const newScore = await prisma.score.create({
         data: {
+          tenantId: session.user.tenantId,
           programId,
           scoringCriteriaId,
           value,
@@ -274,11 +285,12 @@ export async function DELETE(
       );
     }
 
-    // 检查评分是否存在且属于该节目
+    // 检查评分是否存在且属于该节目和租户
     const score = await prisma.score.findFirst({
       where: {
         id: scoreId,
         programId: programId,
+        tenantId: session.user.tenantId,
       },
       include: {
         program: {
@@ -287,6 +299,7 @@ export async function DELETE(
               select: {
                 id: true,
                 organizerId: true,
+                tenantId: true,
               }
             }
           }

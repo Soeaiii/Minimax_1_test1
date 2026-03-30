@@ -43,8 +43,9 @@ export async function POST(request: Request) {
     const hashedPassword = await bcrypt.hash(password, 10);
     
     // 获取默认租户
+    const defaultTenantDomain = process.env.DEFAULT_TENANT_DOMAIN || 'default.example.com';
     const defaultTenant = await prisma.tenant.findFirst({
-      where: { domain: 'default.example.com' },
+      where: { domain: defaultTenantDomain },
     });
     
     if (!defaultTenant) {

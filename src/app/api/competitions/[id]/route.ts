@@ -28,7 +28,10 @@ export async function GET(
     try {
       // 修复：优化数据库查询
       const competition = await prisma.competition.findUnique({
-        where: { id },
+        where: {
+          id,
+          tenantId: session?.user?.tenantId
+        },
         include: {
           organizer: {
             select: {
@@ -162,9 +165,12 @@ export async function PUT(
     const { id } = await params; // 修复：await params
     const body = await request.json();
     
-    // 获取当前比赛
+    // 获取当前比赛（验证租户）
     const currentCompetition = await prisma.competition.findUnique({
-      where: { id },
+      where: {
+        id,
+        tenantId: session.user.tenantId
+      },
       include: {
         scoringCriteria: true,
       },
@@ -321,9 +327,12 @@ export async function DELETE(
     
     const { id } = await params; // 修复：await params
     
-    // 获取当前比赛
+    // 获取当前比赛（验证租户）
     const competition = await prisma.competition.findUnique({
-      where: { id },
+      where: {
+        id,
+        tenantId: session.user.tenantId
+      },
     });
     
     if (!competition) {
@@ -395,9 +404,12 @@ export async function PATCH(
       customFieldDefinitions,
     } = body;
 
-    // 验证比赛存在
+    // 验证比赛存在（验证租户）
     const existingCompetition = await prisma.competition.findUnique({
-      where: { id },
+      where: {
+        id,
+        tenantId: session.user.tenantId
+      },
       include: {
         scoringCriteria: true,
       },

@@ -9,10 +9,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // @ts-ignore
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: '未授权访问' }, { status: 401 });
+    }
+
     const { id } = await params;
-    
+
     const participant = await prisma.participant.findUnique({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       include: {
         programs: {
           include: {
@@ -78,22 +84,22 @@ export async function PUT(
       );
     }
     
-    // 检查选手是否存在
+    // 检查选手是否存在且属于当前租户
     const existingParticipant = await prisma.participant.findUnique({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
     });
-    
+
     if (!existingParticipant) {
       return NextResponse.json(
-        { error: '选手不存在' },
+        { error: '选手不存在或无权访问' },
         { status: 404 }
       );
     }
-    
+
     // 更新选手
     const updatedParticipant = await prisma.$transaction(async (tx) => {
       const updated = await tx.participant.update({
-        where: { id },
+        where: { id, tenantId: session.user.tenantId },
         data: {
           name: name.trim(),
           bio: bio?.trim() || undefined,
@@ -163,21 +169,21 @@ export async function DELETE(
 
     const { id } = await params;
     
-    // 检查选手是否存在
+    // 检查选手是否存在且属于当前租户
     const existingParticipant = await prisma.participant.findUnique({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       include: {
         programs: true,
       },
     });
-    
+
     if (!existingParticipant) {
       return NextResponse.json(
-        { error: '选手不存在' },
+        { error: '选手不存在或无权访问' },
         { status: 404 }
       );
     }
-    
+
     // 如果选手有关联的节目，则不允许删除
     if (existingParticipant.programs.length > 0) {
       return NextResponse.json(
@@ -185,7 +191,7 @@ export async function DELETE(
         { status: 400 }
       );
     }
-    
+
     // 删除选手
     await prisma.$transaction(async (tx) => {
       // 记录审计日志
@@ -202,10 +208,10 @@ export async function DELETE(
           },
         },
       });
-      
+
       // 删除选手
       await tx.participant.delete({
-        where: { id },
+        where: { id, tenantId: session.user.tenantId },
       });
     });
     

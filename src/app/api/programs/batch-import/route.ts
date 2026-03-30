@@ -69,9 +69,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 验证比赛是否存在
+    // 验证比赛是否存在且属于同一租户
     const competition = await prisma.competition.findUnique({
-      where: { id: competitionId }
+      where: { id: competitionId, tenantId: session.user.tenantId }
     });
 
     if (!competition) {
@@ -204,6 +204,7 @@ export async function POST(request: NextRequest) {
         // 批量创建选手
         await tx.participant.createMany({
           data: participantsToCreate.map(p => ({
+            tenantId: session.user.tenantId,
             name: p.name,
             bio: p.bio,
             programIds: [], // 先创建空的programIds，后面再更新
@@ -233,6 +234,7 @@ export async function POST(request: NextRequest) {
           .filter(Boolean) as string[];
 
         const programData: any = {
+          tenantId: session.user.tenantId,
           name: row.name,
           description: row.description,
           order: row.order,

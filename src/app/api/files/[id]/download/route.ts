@@ -3,17 +3,27 @@ import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: '未授权访问' }, { status: 401 });
+    }
+
     const { id } = await params;
 
-    // 从数据库获取文件信息
+    // 从数据库获取文件信息（验证租户）
     const file = await prisma.file.findUnique({
-      where: { id },
+      where: {
+        id,
+        tenantId: session.user.tenantId,
+      },
     });
 
     if (!file) {

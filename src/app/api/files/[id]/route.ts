@@ -13,8 +13,8 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
-    if (!session) {
+
+    if (!session?.user) {
       return NextResponse.json(
         { error: '未授权访问' },
         { status: 401 }
@@ -22,10 +22,13 @@ export async function DELETE(
     }
 
     const params = await context.params;
-    
-    // 从数据库获取文件信息
+
+    // 从数据库获取文件信息（验证租户）
     const file = await prisma.file.findUnique({
-      where: { id: params.id },
+      where: {
+        id: params.id,
+        tenantId: session.user.tenantId,
+      },
       include: {
         programs: true,
         competitions: true,
@@ -41,7 +44,7 @@ export async function DELETE(
 
     // 检查文件是否被使用（如果有关联的节目或比赛，可能需要额外权限检查）
     const hasAssociations = file.programs.length > 0 || file.competitions.length > 0;
-    
+
     if (hasAssociations && session.user.role !== 'ADMIN' && session.user.role !== 'ORGANIZER') {
       return NextResponse.json(
         { error: '文件正在使用中，无法删除' },
@@ -51,7 +54,7 @@ export async function DELETE(
 
     // 构建文件路径
     const filePath = path.join(process.cwd(), 'public', file.path);
-    
+
     try {
       // 删除物理文件（如果存在）
       if (existsSync(filePath)) {
@@ -87,7 +90,7 @@ export async function DELETE(
       console.error('记录审计日志失败:', auditError);
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: '文件删除成功',
       deletedFile: {
         id: file.id,
