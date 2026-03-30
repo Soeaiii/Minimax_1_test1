@@ -1,0 +1,731 @@
+'use client';
+
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
+import { Button } from '@/components/ui/button';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { MultiSelect } from '@/components/ui/multi-select';
+import { ProgramStatus } from '@/lib/types';
+import { ExcelImport } from '@/components/dashboard/ExcelImport';
+import { Upload, Plus, Trash2, X, PlusCircle, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { useParams } from 'next/navigation';
+
+// 自定义简化类型
+interface ProgramData {
+  id?: string;
+  name?: string;
+  description?: string;
+  currentStatus?: string;
+  order?: number;
+  competitionId?: string;
+  participantIds?: string[];
+  customFields?: string;
+  participant?: {
+    id: string;
+    name: string;
+  } | null;
+  judges?: Array<{
+    id: string;
+    name: string;
+  }>;
+  competition?: {
+    id: string;
+    name: string;
+    customFieldDefinitions?: string;
+  } | null;
+}
+
+// 节目表单验证模式
+const programFormSchema = z.object({
+  name: z.string().min(2, { message: '节目名称至少需要2个字符' }),
+  description: z.string().optional(),
+  competitionId: z.string().min(1, { message: '请选择所属比赛' }),
+  order: z.coerce.number().int().min(1, { message: '顺序必须大于0' }),
+  currentStatus: z.enum(['WAITING', 'PERFORMING', 'COMPLETED'], { message: '请选择节目状态' }),
+  participantIds: z.array(z.string()).min(1, { message: '至少需要选择一名选手' }),
+  customFields: z.array(
+    z.object({
+      name: z.string().min(1, { message: '字段名称不能为空' }),
+      value: z.string().optional(),
+    })
+  ).optional(),
+});
+
+type ProgramFormValues = z.infer<typeof programFormSchema>;
+
+interface Participant {
+  id: string;
+  name: string;
+  team?: string | null;
+}
+
+interface Competition {
+  id: string;
+  name: string;
+  status: string;
+}
+
+interface ProgramFormProps {
+  initialData?: ProgramData;
+  competitionId?: string;
+  isEditMode?: boolean;
+}
+
+export function ProgramForm({ initialData, competitionId, isEditMode = false }: ProgramFormProps) {
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [competitions, setCompetitions] = useState<Competition[]>([]);
+  const [selectedParticipants, setSelectedParticipants] = useState<string[]>(
+    initialData?.participantIds || []
+  );
+  const [isLoadingParticipants, setIsLoadingParticipants] = useState(false);
+  const [isLoadingCompetitions, setIsLoadingCompetitions] = useState(false);
+  const [participantSearch, setParticipantSearch] = useState("");
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [competitionError, setCompetitionError] = useState<string | null>(null);
+  const [participantError, setParticipantError] = useState<string | null>(null);
+  const [customFields, setCustomFields] = useState<Record<string, any>>({});
+  const [customFieldDefinitions, setCustomFieldDefinitions] = useState<Array<{
+    name: string;
+    type: 'text' | 'number' | 'select';
+    required: boolean;
+    options?: string[];
+    placeholder?: string;
+  }>>([]);
+
+  // 设置表单默认值
+  const defaultValues: Partial<ProgramFormValues> = {
+    name: initialData?.name || "",
+    description: initialData?.description || "",
+    order: initialData?.order || 1,
+    currentStatus: (initialData?.currentStatus as "WAITING" | "PERFORMING" | "COMPLETED") || "WAITING",
+    competitionId: initialData?.competitionId || competitionId || "",
+    participantIds: initialData?.participantIds || [],
+    customFields: initialData?.customFields ? JSON.parse(initialData.customFields) : [],
+  };
+
+  const form = useForm<ProgramFormValues>({
+    resolver: zodResolver(programFormSchema),
+    defaultValues,
+  });
+
+  // 加载比赛列表
+  useEffect(() => {
+    const fetchCompetitions = async () => {
+      setIsLoadingCompetitions(true);
+      try {
+        const response = await fetch('/api/competitions');
+        if (!response.ok) {
+          throw new Error('获取比赛列表失败');
+        }
+        const data = await response.json();
+        setCompetitions(data.competitions || data);
+      } catch (error) {
+        console.error('加载比赛失败:', error);
+        toast.error('加载比赛列表失败');
+        setCompetitions([]);
+      } finally {
+        setIsLoadingCompetitions(false);
+      }
+    };
+
+    // 只有在没有指定competitionId时才加载比赛列表
+    if (!competitionId) {
+      fetchCompetitions();
+    }
+  }, [competitionId]);
+
+  // 加载选手列表
+  useEffect(() => {
+    const fetchParticipants = async () => {
+      setIsLoadingParticipants(true);
+      try {
+        // 添加一个很大的limit参数来获取所有参赛者
+        const response = await fetch('/api/participants?limit=2000');
+        if (!response.ok) {
+          throw new Error('获取选手列表失败');
+        }
+        const data = await response.json();
+        // 修复：API 返回的是 { participants: [...], pagination: {...} }
+        const participantsList = data.participants || [];
+        // 确保每个参与者都有必需的属性
+        const validParticipants = participantsList.filter((p: any) => p && p.id && p.name);
+        setParticipants(validParticipants);
+      } catch (error) {
+        console.error('加载选手失败:', error);
+        toast.error('加载选手列表失败');
+        // 确保即使出错也设置为空数组
+        setParticipants([]);
+      } finally {
+        setIsLoadingParticipants(false);
+      }
+    };
+
+    fetchParticipants();
+  }, []);
+
+  // 选手选择处理
+  const toggleParticipant = (participantId: string) => {
+    const newSelectedParticipants = selectedParticipants.includes(participantId)
+      ? selectedParticipants.filter(id => id !== participantId)
+      : [...selectedParticipants, participantId];
+    
+    setSelectedParticipants(newSelectedParticipants);
+    // 同步更新表单字段
+    form.setValue('participantIds', newSelectedParticipants);
+  };
+
+  // 过滤选手列表
+  const filteredParticipants = participants.filter(participant =>
+    participant.name.toLowerCase().includes(participantSearch.toLowerCase()) ||
+    participant.team?.toLowerCase().includes(participantSearch.toLowerCase())
+  );
+
+  // 全选/清空功能
+  const selectAllParticipants = () => {
+    const allParticipantIds = filteredParticipants.map(p => p.id);
+    setSelectedParticipants(allParticipantIds);
+    form.setValue('participantIds', allParticipantIds);
+  };
+
+  const clearAllParticipants = () => {
+    setSelectedParticipants([]);
+    form.setValue('participantIds', []);
+  };
+
+  // 处理选手导入完成
+  const handleParticipantImportComplete = (importedData: any[]) => {
+    // 重新加载选手列表
+    const fetchParticipants = async () => {
+      setIsLoadingParticipants(true);
+      try {
+        const response = await fetch('/api/participants?limit=2000');
+        if (!response.ok) {
+          throw new Error('获取选手列表失败');
+        }
+        const data = await response.json();
+        const participantsList = data.participants || [];
+        const validParticipants = participantsList.filter((p: any) => p && p.id && p.name);
+        setParticipants(validParticipants);
+        
+        // 自动选择新导入的选手
+        const newParticipantIds = importedData.map(p => p.id);
+        const updatedSelection = [...new Set([...selectedParticipants, ...newParticipantIds])];
+        setSelectedParticipants(updatedSelection);
+        form.setValue('participantIds', updatedSelection);
+        
+        toast.success(`成功导入 ${importedData.length} 名选手并已自动选择`);
+      } catch (error) {
+        console.error('加载选手失败:', error);
+        toast.error('重新加载选手列表失败');
+      } finally {
+        setIsLoadingParticipants(false);
+      }
+    };
+    
+    fetchParticipants();
+    setShowImportDialog(false);
+  };
+
+  // 当初始数据或competitionId变化时，同步表单值
+  useEffect(() => {
+    if (initialData?.participantIds) {
+      setSelectedParticipants(initialData.participantIds);
+      form.setValue('participantIds', initialData.participantIds);
+    }
+  }, [initialData, form]);
+
+  // 在useEffect中加载自定义字段定义
+  useEffect(() => {
+    const loadCustomFieldDefinitions = async () => {
+      // 如果初始数据中有比赛，并且有自定义字段定义
+      if (initialData?.competition?.customFieldDefinitions) {
+        try {
+          const definitions = JSON.parse(initialData.competition.customFieldDefinitions);
+          setCustomFieldDefinitions(definitions);
+          
+          // 如果初始数据中有自定义字段值，解析它们
+          if (initialData.customFields) {
+            const fields = JSON.parse(initialData.customFields as string);
+            setCustomFields(fields);
+          }
+        } catch (error) {
+          console.error("Error parsing custom field definitions:", error);
+        }
+      }
+      // 如果没有初始数据，但有competitionId，尝试从API获取比赛的自定义字段定义
+      else if (competitionId) {
+        try {
+          const response = await fetch(`/api/competitions/${competitionId}`);
+          if (response.ok) {
+            const data = await response.json();
+            // API直接返回比赛数据，不是嵌套在competition对象中
+            if (data && data.customFieldDefinitions) {
+              const definitions = JSON.parse(data.customFieldDefinitions);
+              setCustomFieldDefinitions(definitions);
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching competition:", error);
+        }
+      }
+    };
+
+    loadCustomFieldDefinitions();
+  }, [initialData, competitionId]);
+  
+  // 更新自定义字段值
+  const handleCustomFieldChange = (name: string, value: any) => {
+    setCustomFields(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // 更新表单提交
+  const onSubmit = async (data: ProgramFormValues) => {
+    setIsSubmitting(true);
+
+    try {
+      // 合并基础数据和自定义字段
+      const formData = {
+        ...data,
+        competitionId: data.competitionId || competitionId,
+        // 将自定义字段转换为JSON字符串
+        customFields: JSON.stringify(customFields),
+      };
+
+      console.log("Submitting form data:", formData);
+
+      const response = await fetch(
+        isEditMode
+          ? `/api/programs/${initialData?.id}`
+          : "/api/programs",
+        {
+          method: isEditMode ? "PATCH" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "提交表单时出错");
+      }
+
+      toast.success(
+        isEditMode ? "节目已成功更新" : "节目已成功创建"
+      );
+      router.push("/dashboard/programs");
+      router.refresh();
+    } catch (error: any) {
+      toast.error(error.message || "提交表单时出错");
+      console.error("Error submitting form:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>节目名称</FormLabel>
+              <FormControl>
+                <Input placeholder="输入节目名称" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>节目描述</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="输入节目描述（可选）"
+                  className="min-h-32"
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="order"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>顺序</FormLabel>
+                <FormControl>
+                  <Input type="number" min="1" step="1" {...field} />
+                </FormControl>
+                <FormDescription>
+                  节目在比赛中的显示顺序
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="currentStatus"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>状态</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择节目状态" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="WAITING">等待中</SelectItem>
+                    <SelectItem value="PERFORMING">进行中</SelectItem>
+                    <SelectItem value="COMPLETED">已完成</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="competitionId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>所属比赛</FormLabel>
+              {competitionId ? (
+                <>
+                  <FormControl>
+                    <Input type="hidden" {...field} />
+                  </FormControl>
+                  <div className="p-2 rounded-md border bg-muted/50">
+                    <p className="text-sm">该节目将添加到当前比赛中</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    disabled={isLoadingCompetitions || isEditMode}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder={
+                          isLoadingCompetitions 
+                            ? "正在加载比赛..." 
+                            : "请选择比赛"
+                        } />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {competitions.map((competition) => (
+                        <SelectItem key={competition.id} value={competition.id}>
+                          {competition.name}
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            ({competition.status === 'ACTIVE' ? '进行中' : 
+                              competition.status === 'PENDING' ? '待开始' : '已结束'})
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {isEditMode && (
+                    <FormDescription>
+                      节目所属比赛无法更改
+                    </FormDescription>
+                  )}
+                  {!isEditMode && competitions.length === 0 && !isLoadingCompetitions && (
+                    <FormDescription className="text-orange-600">
+                      暂无可用比赛，请先创建比赛
+                    </FormDescription>
+                  )}
+                </>
+              )}
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* 隐藏的participantIds字段用于表单验证 */}
+        <FormField
+          control={form.control}
+          name="participantIds"
+          render={({ field }) => (
+            <FormItem className="hidden">
+              <FormControl>
+                <Input type="hidden" {...field} value={selectedParticipants.join(',')} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <FormLabel>参与选手</FormLabel>
+            {selectedParticipants.length === 0 && (
+              <span className="text-sm text-destructive">至少需要选择一名选手</span>
+            )}
+          </div>
+          
+          {isLoadingParticipants ? (
+            <div className="text-sm text-muted-foreground">
+              正在加载选手列表...
+            </div>
+          ) : participants.length === 0 ? (
+            <div className="text-sm text-muted-foreground">
+              暂无选手数据，请先添加选手
+            </div>
+          ) : (
+            <div className="border rounded-md">
+              <div className="p-3 border-b bg-muted/50">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-medium">
+                    选手列表 ({filteredParticipants.length} 名, 已选择 {selectedParticipants.length} 名)
+                  </div>
+                  <div className="flex gap-2">
+                    <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+                      <DialogTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                        >
+                          <Upload className="h-3 w-3 mr-1" />
+                          导入
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl">
+                        <DialogHeader>
+                          <DialogTitle>批量导入选手</DialogTitle>
+                          <DialogDescription>
+                            从Excel表格批量导入选手信息，导入的选手将自动添加到当前节目中
+                          </DialogDescription>
+                        </DialogHeader>
+                        <ExcelImport 
+                          type="participants"
+                          onImportComplete={handleParticipantImportComplete}
+                        />
+                      </DialogContent>
+                    </Dialog>
+                    
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={selectAllParticipants}
+                      disabled={filteredParticipants.length === 0}
+                      className="h-6 px-2 text-xs"
+                    >
+                      全选
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={clearAllParticipants}
+                      disabled={selectedParticipants.length === 0}
+                      className="h-6 px-2 text-xs"
+                    >
+                      清空
+                    </Button>
+                  </div>
+                </div>
+                <Input
+                  placeholder="搜索选手姓名或团队..."
+                  value={participantSearch}
+                  onChange={(e) => setParticipantSearch(e.target.value)}
+                  className="h-8"
+                />
+              </div>
+              <div className="max-h-60 overflow-y-auto">
+                {filteredParticipants.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground">
+                    {participantSearch ? "未找到匹配的选手" : "暂无选手"}
+                  </div>
+                ) : (
+                  filteredParticipants.map((participant, index) => (
+                  <div 
+                    key={participant.id}
+                    className={`flex items-center justify-between p-3 cursor-pointer transition-colors hover:bg-muted/50 ${
+                      index !== participants.length - 1 ? 'border-b' : ''
+                    } ${
+                      selectedParticipants.includes(participant.id)
+                        ? "bg-primary/5 border-l-4 border-l-primary"
+                        : ""
+                    }`}
+                    onClick={() => toggleParticipant(participant.id)}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-4 h-4 border-2 rounded flex items-center justify-center ${
+                        selectedParticipants.includes(participant.id)
+                          ? "bg-primary border-primary"
+                          : "border-muted-foreground"
+                      }`}>
+                        {selectedParticipants.includes(participant.id) && (
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-medium">{participant.name}</div>
+                        {participant.team && (
+                          <div className="text-sm text-muted-foreground">
+                            团队: {participant.team}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      点击{selectedParticipants.includes(participant.id) ? '取消' : '选择'}
+                    </div>
+                  </div>
+                  ))
+                )}
+              </div>
+              
+              {selectedParticipants.length > 0 && (
+                <div className="p-3 border-t bg-muted/30">
+                  <div className="text-sm">
+                    <span className="font-medium">已选择的选手:</span>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {selectedParticipants.map(participantId => {
+                        const participant = participants.find(p => p.id === participantId);
+                        return participant ? (
+                          <span 
+                            key={participantId}
+                            className="inline-flex items-center px-2 py-1 text-xs bg-primary/10 text-primary rounded-md"
+                          >
+                            {participant.name}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleParticipant(participantId);
+                              }}
+                              className="ml-1 hover:text-primary/70"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ) : null;
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* 自定义字段部分 */}
+        {customFieldDefinitions.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">自定义字段</h3>
+            
+            {customFieldDefinitions.map((field, index) => (
+              <div key={index} className="space-y-2">
+                <label className="text-sm font-medium">
+                  {field.name} {field.required && <span className="text-red-500">*</span>}
+                </label>
+                
+                {field.type === 'text' && (
+                  <Input
+                    value={customFields[field.name] || ''}
+                    onChange={(e) => handleCustomFieldChange(field.name, e.target.value)}
+                    placeholder={field.placeholder}
+                    required={field.required}
+                  />
+                )}
+                
+                {field.type === 'number' && (
+                  <Input
+                    type="number"
+                    value={customFields[field.name] || ''}
+                    onChange={(e) => handleCustomFieldChange(field.name, e.target.value)}
+                    placeholder={field.placeholder}
+                    required={field.required}
+                  />
+                )}
+                
+                {field.type === 'select' && field.options && (
+                  <Select
+                    value={customFields[field.name] || ''}
+                    onValueChange={(value) => handleCustomFieldChange(field.name, value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={field.placeholder || '请选择'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {field.options.map((option, i) => (
+                        <SelectItem key={i} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex justify-end space-x-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.back()}
+            disabled={isSubmitting}
+          >
+            取消
+          </Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                处理中
+              </>
+            ) : isEditMode ? (
+              "更新节目"
+            ) : (
+              "创建节目"
+            )}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+} 

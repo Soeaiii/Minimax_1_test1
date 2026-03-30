@@ -135,6 +135,7 @@ interface FileItem {
 
 type FormValues = {
   backgroundImageId: string;
+  currentProgramId: string;
   title: string;
   subtitle: string;
   theme: string;
@@ -192,6 +193,7 @@ export default function DisplayManagePage() {
   const form = useForm<FormValues>({
     defaultValues: {
       backgroundImageId: '',
+      currentProgramId: '',
       title: '',
       subtitle: '',
       theme: 'MODERN',
@@ -256,6 +258,7 @@ export default function DisplayManagePage() {
       // 更新表单默认值
       form.reset({
         backgroundImageId: data.settings.backgroundImageId || '',
+        currentProgramId: data.settings.currentProgramId || '',
         title: data.settings.title || '',
         subtitle: data.settings.subtitle || '',
         theme: data.settings.theme || 'MODERN',
@@ -551,6 +554,31 @@ export default function DisplayManagePage() {
                     <SelectItem value="ELEGANT">优雅风格</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="currentProgramId">当前节目</Label>
+                <Select
+                  value={form.watch('currentProgramId') || 'none'}
+                  onValueChange={(value) => form.setValue('currentProgramId', value === 'none' ? '' : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="请选择当前节目" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">-- 不选择节目 --</SelectItem>
+                    {programs.map((program) => (
+                      <SelectItem key={program.id} value={program.id}>
+                        {program.order}. {program.name}
+                        {program.currentStatus === 'PERFORMING' && ' 🔴 表演中'}
+                        {program.currentStatus === 'COMPLETED' && ' ✓ 已完成'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  选择当前正在表演或即将表演的节目，大屏幕将显示该节目的评分
+                </p>
               </div>
             </CardContent>
           </Card>

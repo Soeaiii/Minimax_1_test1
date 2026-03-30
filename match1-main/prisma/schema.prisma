@@ -1,0 +1,321 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  domain        String?   @unique
+  settings      Json?     @default("{}")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  isActive      Boolean   @default(true)
+  
+  // 关系
+  users         User[]
+  competitions  Competition[]
+  auditLogs     AuditLog[]
+  judgeAssignments JudgeAssignment[]
+  @@index([isActive])
+}
+
+model User {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId      String    @db.ObjectId
+  name          String
+  email         String
+  password      String
+  role          UserRole  @default(USER)
+  permissions   Json?     @default("[]")
+  avatar        String?   // 头像URL或路径
+  bio           String?   // 个人简介（可选）
+  lastLogin     DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  isDeleted     Boolean   @default(false)
+  
+  // 关系
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  competitions  Competition[] @relation("OrganizedCompetitions")
+  createdCompetitions Competition[] @relation("CreatedCompetitions")
+  auditLogs     AuditLog[]
+  judgeScores   Score[]   @relation("JudgeScores")
+  judgeAssignments JudgeAssignment[]
+  @@index([tenantId])
+  @@index([email, tenantId])
+  @@index([name])
+  @@index([role])
+  @@index([isActive])
+}
+
+enum UserRole {
+  ADMIN
+  ORGANIZER
+  JUDGE
+  USER
+}
+
+model Competition {
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String    @db.ObjectId
+  name                String
+  description         String?
+  organizerId         String    @db.ObjectId
+  creatorId           String    @db.ObjectId
+  startTime           DateTime
+  endTime             DateTime
+  status              CompetitionStatus @default(PENDING)
+  backgroundImageId   String?   @db.ObjectId
+  rankingUpdateMode   RankingUpdateMode @default(BATCH)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  customFieldDefinitions Json?   // 比赛级别的自定义字段定义
+  
+  // 关系
+  tenant              Tenant    @relation(fields: [tenantId], references: [id])
+  organizer           User      @relation("OrganizedCompetitions", fields: [organizerId], references: [id])
+  creator             User      @relation("CreatedCompetitions", fields: [creatorId], references: [id])
+  programs            Program[]
+  scoringCriteria     ScoringCriteria[]
+  rankings            Ranking[]
+  backgroundImage     File?     @relation("BackgroundImage", fields: [backgroundImageId], references: [id])
+  fileIds             String[]  @db.ObjectId
+  files               File[]    @relation("CompetitionFiles", fields: [fileIds], references: [id])
+  displaySettings     DisplaySettings?
+  judgeAssignments    JudgeAssignment[]
+  @@index([tenantId])
+  @@index([organizerId])
+  @@index([creatorId])
+  @@index([status])
+}
+
+enum CompetitionStatus {
+  PENDING
+  ACTIVE
+  FINISHED
+  ARCHIVED
+}
+
+enum RankingUpdateMode {
+  REALTIME
+  BATCH
+}
+
+model ScoringCriteria {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  weight        Float
+  maxScore      Float
+  competitionId String    @db.ObjectId
+  
+  // 关系
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  scores        Score[]
+}
+
+model Participant {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  bio       String?
+  team      String?
+  contact   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  // 关系
+  programIds  String[] @db.ObjectId
+  programs    Program[] @relation("ParticipantPrograms", fields: [programIds], references: [id])
+}
+
+model Program {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  description   String?
+  order         Int
+  currentStatus ProgramStatus @default(WAITING)
+  competitionId String    @db.ObjectId
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  customFields  Json?     // 添加自定义字段支持，存储为JSON格式
+  
+  // 关系
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  participantIds String[]  @db.ObjectId
+  participants  Participant[] @relation("ParticipantPrograms", fields: [participantIds], references: [id])
+  fileIds       String[]   @db.ObjectId
+  attachments   File[]     @relation("ProgramFiles", fields: [fileIds], references: [id])
+  scores        Score[]
+  ranking       Ranking?
+  @@index([competitionId])
+}
+
+enum ProgramStatus {
+  WAITING
+  PERFORMING
+  COMPLETED
+}
+
+model Score {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  value             Float
+  comment           String?
+  programId         String    @db.ObjectId
+  scoringCriteriaId String    @db.ObjectId
+  judgeId           String    @db.ObjectId
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // 关系
+  program           Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
+  scoringCriteria   ScoringCriteria @relation(fields: [scoringCriteriaId], references: [id], onDelete: Cascade)
+  judge             User      @relation("JudgeScores", fields: [judgeId], references: [id])
+  @@index([programId])
+  @@index([scoringCriteriaId])
+  @@index([judgeId])
+}
+
+model Ranking {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  rank          Int
+  totalScore    Float
+  updateType    UpdateType @default(AUTO)
+  competitionId String    @db.ObjectId
+  programId     String    @db.ObjectId @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // 关系
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  program       Program    @relation(fields: [programId], references: [id], onDelete: Cascade)
+  @@index([competitionId])
+}
+
+enum UpdateType {
+  AUTO
+  MANUAL
+}
+
+model File {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  filename      String
+  path          String
+  mimetype      String
+  size          Int
+  createdAt     DateTime  @default(now())
+  
+  // 关系
+  programIds    String[]  @db.ObjectId
+  programs      Program[] @relation("ProgramFiles", fields: [programIds], references: [id])
+  competitionIds String[] @db.ObjectId
+  competitions  Competition[] @relation("CompetitionFiles", fields: [competitionIds], references: [id])
+  backgroundImageCompetitions Competition[] @relation("BackgroundImage")
+  displayBackgrounds DisplaySettings[] @relation("DisplayBackground")
+  @@index([filename])
+}
+
+model AuditLog {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId      String    @db.ObjectId
+  timestamp     DateTime  @default(now())
+  userId        String    @db.ObjectId
+  action        String
+  targetId      String?
+  details       Json?
+  
+  // 关系
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  user          User      @relation(fields: [userId], references: [id])
+  @@index([tenantId])
+  @@index([userId])
+  @@index([action])
+  @@index([tenantId, timestamp])
+}
+
+model JudgeAssignment {
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId            String    @db.ObjectId
+  judgeId             String    @db.ObjectId
+  competitionId       String    @db.ObjectId
+  authorizedPrograms  Json?     @default("[]")
+  assignedAt          DateTime  @default(now())
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  isActive            Boolean   @default(true)
+  
+  // 关系
+  tenant              Tenant    @relation(fields: [tenantId], references: [id])
+  judge               User      @relation(fields: [judgeId], references: [id])
+  competition         Competition @relation(fields: [competitionId], references: [id])
+  @@index([tenantId])
+  @@index([judgeId])
+  @@index([competitionId])
+  @@index([isActive])
+  @@unique([judgeId, competitionId])
+}
+
+// 大屏幕显示配置模型
+model DisplaySettings {
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  competitionId       String    @db.ObjectId @unique
+  currentProgramId    String?   @db.ObjectId
+  backgroundImageId   String?   @db.ObjectId
+  showJudgeScores     Boolean   @default(true)
+  showParticipants    Boolean   @default(true)
+  showProgramInfo     Boolean   @default(true)
+  title               String?
+  subtitle            String?
+  autoRefresh         Boolean   @default(true)
+  refreshInterval     Int       @default(5) // 秒
+  theme               DisplayTheme @default(MODERN)
+  titleColor          String?   @default("#ffffff") // 标题颜色
+  subtitleColor       String?   @default("#ffffff") // 副标题颜色
+  judgeNameColor      String?   @default("#1f2937") // 评委姓名颜色
+  judgeScoreColor     String?   @default("#1f2937") // 评委分数颜色
+  averageScoreColor   String?   @default("#ffffff") // 平均分颜色
+  programInfoColor    String?   @default("#ffffff") // 节目信息颜色
+  // 评委卡片大小设置
+  judgeCardWidth      Int?      @default(288) // 卡片宽度 (px)，默认 w-72 = 288px
+  judgeCardPadding    Int?      @default(32) // 卡片内边距 (px)，默认 p-8 = 32px
+  judgeCardGap        Int?      @default(40) // 卡片间距 (px)，默认 gap-10 = 40px
+  judgeAvatarSize     Int?      @default(176) // 头像大小 (px)，默认 w-44 h-44 = 176px
+  judgeNameFontSize   Int?      @default(20) // 姓名字体大小 (px)，默认 text-xl = 20px
+  judgeScoreFontSize  Int?      @default(36) // 分数字体大小 (px)，默认 text-4xl = 36px
+  // 背景遮罩控制
+  participantLabelFontSize Int? @default(56) // 选手信息标签字体(px)
+  participantValueFontSize Int? @default(56) // 选手信息值字体(px)
+  participantCardPadding  Int? @default(48) // 选手卡片内边距(px)
+  participantCardGap      Int? @default(16) // 选手卡片行间距水平(px)
+  participantCardRowGap   Int? @default(32) // 选手卡片行间距垂直(px)
+  showBackgroundOverlay Boolean @default(true) // 是否显示背景遮罩
+  overlayColor        String?   @default("#000000") // 遮罩颜色，默认黑色
+  overlayOpacity      Float?    @default(0.4) // 遮罩透明度，0-1之间，默认0.4
+  // 评委选择
+  selectedJudgeIds    String[]  @db.ObjectId @default([]) // 选中的评委ID列表
+  selectedParticipantFieldNames Json? @default("[]") // 选手信息要显示的自定义字段名称
+  averageScoreFontSize    Int? @default(192) // 最终得分字体大小(px)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  // 关系
+  competition         Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  backgroundImage     File?     @relation("DisplayBackground", fields: [backgroundImageId], references: [id])
+}
+
+enum DisplayTheme {
+  MODERN
+  CLASSIC
+  MINIMAL
+  ELEGANT
+}

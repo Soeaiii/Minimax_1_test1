@@ -1,0 +1,186 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  email     String   @unique
+  password  String
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 关系
+  competitions Competition[] @relation("OrganizedCompetitions")
+  auditLogs    AuditLog[]
+}
+
+enum UserRole {
+  ADMIN
+  ORGANIZER
+  JUDGE
+  USER
+}
+
+model Competition {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  name              String
+  description       String?
+  organizerId       String            @db.ObjectId
+  startTime         DateTime
+  endTime           DateTime
+  status            CompetitionStatus @default(PENDING)
+  backgroundImageId String?           @db.ObjectId
+  rankingUpdateMode RankingUpdateMode @default(BATCH)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  // 关系
+  organizer       User              @relation("OrganizedCompetitions", fields: [organizerId], references: [id])
+  programs        Program[]
+  scoringCriteria ScoringCriteria[]
+  rankings        Ranking[]
+  backgroundImage File?             @relation("BackgroundImage", fields: [backgroundImageId], references: [id])
+  fileIds         String[]          @db.ObjectId
+  files           File[]            @relation("CompetitionFiles", fields: [fileIds], references: [id])
+}
+
+enum CompetitionStatus {
+  PENDING
+  ACTIVE
+  FINISHED
+  ARCHIVED
+}
+
+enum RankingUpdateMode {
+  REALTIME
+  BATCH
+}
+
+model ScoringCriteria {
+  id            String @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  weight        Float
+  maxScore      Float
+  competitionId String @db.ObjectId
+
+  // 关系
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  scores      Score[]
+}
+
+model Participant {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  bio       String?
+  team      String?
+  contact   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 关系
+  programIds String[]  @db.ObjectId
+  programs   Program[] @relation("ParticipantPrograms", fields: [programIds], references: [id])
+}
+
+model Program {
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  description   String?
+  order         Int
+  currentStatus ProgramStatus @default(WAITING)
+  competitionId String        @db.ObjectId
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // 关系
+  competition    Competition   @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  participantIds String[]      @db.ObjectId
+  participants   Participant[] @relation("ParticipantPrograms", fields: [participantIds], references: [id])
+  fileIds        String[]      @db.ObjectId
+  attachments    File[]        @relation("ProgramFiles", fields: [fileIds], references: [id])
+  scores         Score[]
+  ranking        Ranking?
+}
+
+enum ProgramStatus {
+  WAITING
+  PERFORMING
+  COMPLETED
+}
+
+model Score {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  value             Float
+  comment           String?
+  programId         String   @db.ObjectId
+  scoringCriteriaId String   @db.ObjectId
+  judgeId           String   @db.ObjectId
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // 关系
+  program         Program         @relation(fields: [programId], references: [id], onDelete: Cascade)
+  scoringCriteria ScoringCriteria @relation(fields: [scoringCriteriaId], references: [id], onDelete: Cascade)
+}
+
+model Ranking {
+  id            String     @id @default(auto()) @map("_id") @db.ObjectId
+  rank          Int
+  totalScore    Float
+  updateType    UpdateType @default(AUTO)
+  competitionId String     @db.ObjectId
+  programId     String     @unique @db.ObjectId
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  // 关系
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  program     Program     @relation(fields: [programId], references: [id], onDelete: Cascade)
+}
+
+enum UpdateType {
+  AUTO
+  MANUAL
+}
+
+model File {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  filename  String
+  path      String
+  mimetype  String
+  size      Int
+  createdAt DateTime @default(now())
+
+  // 关系
+  programIds                  String[]      @db.ObjectId
+  programs                    Program[]     @relation("ProgramFiles", fields: [programIds], references: [id])
+  competitionIds              String[]      @db.ObjectId
+  competitions                Competition[] @relation("CompetitionFiles", fields: [competitionIds], references: [id])
+  backgroundImageCompetitions Competition[] @relation("BackgroundImage")
+}
+
+model AuditLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  timestamp DateTime @default(now())
+  userId    String   @db.ObjectId
+  action    String
+  targetId  String?
+  details   Json?
+
+  // 关系
+  user User @relation(fields: [userId], references: [id])
+}
