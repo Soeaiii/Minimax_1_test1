@@ -20,13 +20,17 @@ export async function GET(
     const participant = await prisma.participant.findUnique({
       where: { id, tenantId: session.user.tenantId },
       include: {
-        programs: {
+        participantPrograms: {
           include: {
-            competition: {
-              select: {
-                id: true,
-                name: true,
-                status: true,
+            program: {
+              include: {
+                competition: {
+                  select: {
+                    id: true,
+                    name: true,
+                    status: true,
+                  },
+                },
               },
             },
           },
@@ -107,13 +111,17 @@ export async function PUT(
           contact: contact?.trim() || undefined,
         },
         include: {
-          programs: {
+          participantPrograms: {
             include: {
-              competition: {
-                select: {
-                  id: true,
-                  name: true,
-                  status: true,
+              program: {
+                include: {
+                  competition: {
+                    select: {
+                      id: true,
+                      name: true,
+                      status: true,
+                    },
+                  },
                 },
               },
             },
@@ -173,7 +181,7 @@ export async function DELETE(
     const existingParticipant = await prisma.participant.findUnique({
       where: { id, tenantId: session.user.tenantId },
       include: {
-        programs: true,
+        participantPrograms: true,
       },
     });
 
@@ -185,7 +193,7 @@ export async function DELETE(
     }
 
     // 如果选手有关联的节目，则不允许删除
-    if (existingParticipant.programs.length > 0) {
+    if (existingParticipant.participantPrograms.length > 0) {
       return NextResponse.json(
         { error: '无法删除已关联节目的选手，请先移除节目关联' },
         { status: 400 }

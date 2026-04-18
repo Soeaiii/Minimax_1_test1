@@ -144,7 +144,7 @@ export async function POST(
     const competition = await prisma.competition.findUnique({
       where: { id: competitionId, tenantId: session.user.tenantId },
       include: {
-        programs: {
+        participantPrograms: {
           include: {
             scores: {
               include: {

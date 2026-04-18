@@ -36,7 +36,7 @@ async function getCurrentProgramScores(competitionId: string, selectedJudgeIds?:
         id: displaySettings.currentProgramId,
       },
       include: {
-        participants: {
+        participantPrograms: {
           select: {
             id: true,
             name: true,

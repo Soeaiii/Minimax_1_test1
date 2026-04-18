@@ -73,8 +73,8 @@ export default async function ProgramDetailPage({ params }: PageProps) {
           status: true,
         }
       },
-      participants: true,
-      attachments: true,
+      participantPrograms: true,
+      programFiles: true,
       scores: {
         include: {
           scoringCriteria: {
@@ -191,7 +191,7 @@ export default async function ProgramDetailPage({ params }: PageProps) {
               <div className="text-sm font-medium text-muted-foreground">参与人数</div>
               <div className="flex items-center space-x-2">
                 <Users className="h-4 w-4" />
-                <span>{program.participants.length} 名参与者</span>
+                <span>{program.participantPrograms.length} 名参与者</span>
               </div>
             </div>
           </div>
@@ -260,21 +260,16 @@ export default async function ProgramDetailPage({ params }: PageProps) {
         <TabsContent value="participants">
           <Card>
             <CardHeader>
-              <CardTitle>参与者 ({program.participants.length})</CardTitle>
+              <CardTitle>参与者 ({program.participantPrograms.length})</CardTitle>
               <CardDescription>本节目的所有参与者信息</CardDescription>
             </CardHeader>
             <CardContent>
-              {program.participants.length > 0 ? (
+              {program.participantPrograms.length > 0 ? (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {program.participants.map((participant) => (
+                  {program.participantPrograms.map((pp) => (
                     <ParticipantCard 
-                      key={participant.id} 
-                      participant={{
-                        ...participant,
-                        bio: participant.bio ?? undefined,
-                        team: participant.team ?? undefined,
-                        contact: participant.contact ?? undefined
-                      }} 
+                      key={pp.participant.id} 
+                      participant={{...pp.participant}}
                     />
                   ))}
                 </div>
@@ -320,11 +315,11 @@ export default async function ProgramDetailPage({ params }: PageProps) {
         <TabsContent value="files">
           <Card>
             <CardHeader>
-              <CardTitle>文件附件 ({program.attachments.length})</CardTitle>
+              <CardTitle>文件附件 ({program.programFiles.length})</CardTitle>
               <CardDescription>与此节目相关的所有文件</CardDescription>
             </CardHeader>
             <CardContent>
-              <FileAttachmentList files={program.attachments} canEdit={canEdit} />
+              <FileAttachmentList files={program.programFiles} canEdit={canEdit} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -345,7 +340,7 @@ export default async function ProgramDetailPage({ params }: PageProps) {
                     </div>
                     <div>
                       <div className="text-3xl font-bold">第 {program.ranking.rank} 名</div>
-                      <div className="text-muted-foreground">总分: {program.ranking.totalScore.toFixed(1)}</div>
+                      <div className="text-sm text-muted-foreground">总分: {program.ranking.totalScore.toFixed(1)}</div>
                     </div>
                   </div>
                   <Separator />
@@ -374,4 +369,4 @@ export default async function ProgramDetailPage({ params }: PageProps) {
       </Tabs>
     </div>
   );
-} 
+}

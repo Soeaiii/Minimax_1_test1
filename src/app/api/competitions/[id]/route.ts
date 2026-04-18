@@ -17,8 +17,8 @@ export async function GET(
     // @ts-ignore 忽略NextAuth类型兼容性问题
     const session = await getServerSession(authOptions);
     
-    // 检查ID是否有效的ObjectId格式
-    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+    // 检查ID是否有效的UUID格式
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
       return NextResponse.json(
         { error: '无效的比赛ID格式' },
         { status: 400 }
@@ -40,15 +40,19 @@ export async function GET(
               email: true,
             },
           },
-          programs: {
+          participantPrograms: {
             include: {
-              participants: {
-                select: {
-                  id: true,
-                  name: true,
-                  team: true,
-                  bio: true,
-                }
+              participantPrograms: {
+                include: {
+                  participant: {
+                    select: {
+                      id: true,
+                      name: true,
+                      team: true,
+                      bio: true,
+                    }
+                  },
+                },
               },
             },
             orderBy: {

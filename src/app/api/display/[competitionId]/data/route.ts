@@ -97,13 +97,13 @@ export async function GET(
       displaySettings.currentProgramId
         ? prisma.program.findUnique({
             where: { id: displaySettings.currentProgramId },
-            select: { id: true, name: true, description: true, order: true, participants: { select: { id: true, name: true, team: true } }, customFields: true },
+            select: { id: true, name: true, description: true, order: true, participantPrograms: { select: { id: true, name: true, team: true } }, customFields: true },
           })
         : Promise.resolve(null),
       prisma.user.findMany({ where: { role: 'JUDGE' }, select: { id: true, name: true, avatar: true } }),
       prisma.program.findMany({
         where: { competitionId: params.competitionId },
-        select: { id: true, name: true, order: true, currentStatus: true, participants: { select: { id: true, name: true, team: true } }, customFields: true },
+        select: { id: true, name: true, order: true, currentStatus: true, participantPrograms: { select: { id: true, name: true, team: true } }, customFields: true },
         orderBy: { order: 'asc' },
       }),
     ]);

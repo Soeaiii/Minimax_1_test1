@@ -15,8 +15,12 @@ export async function GET(
       where: { id, tenantId: session.user.tenantId },
       include: {
         competition: true,
-        participants: true,
-        attachments: true,
+        participantPrograms: {
+          include: { participant: true }
+        },
+        programFiles: {
+          include: { file: true }
+        },
         scores: {
           include: {
             scoringCriteria: true,
@@ -76,7 +80,9 @@ export async function PUT(
       where: { id, tenantId: session.user.tenantId },
       include: {
         competition: true,
-        participants: true,
+        participantPrograms: {
+          include: { participant: true }
+        },
       },
     });
     
@@ -114,7 +120,9 @@ export async function PUT(
       data: updateData,
       include: {
         competition: true,
-        participants: true,
+        participantPrograms: {
+          include: { participant: true }
+        },
       },
     });
 

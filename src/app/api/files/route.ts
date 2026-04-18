@@ -18,7 +18,7 @@ export async function GET() {
         tenantId: session.user.tenantId
       },
       include: {
-        programs: {
+        participantPrograms: {
           select: {
             id: true,
             name: true,
@@ -75,7 +75,7 @@ export async function DELETE(request: NextRequest) {
         tenantId: session.user.tenantId,
       },
       include: {
-        programs: true,
+        participantPrograms: true,
         competitions: true,
       },
     });

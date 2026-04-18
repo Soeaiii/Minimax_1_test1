@@ -18,7 +18,7 @@ export async function GET() {
     // 获取所有节目和参与者数据
     const programs = await prisma.program.findMany({
       include: {
-        participants: {
+        participantPrograms: {
           select: {
             id: true,
             name: true,
@@ -35,7 +35,7 @@ export async function GET() {
 
     const participants = await prisma.participant.findMany({
       include: {
-        programs: {
+        participantPrograms: {
           select: {
             id: true,
             name: true,
@@ -54,7 +54,7 @@ export async function GET() {
     
     for (const program of programs) {
       // 检查节目的participantIds是否与实际关联的participants一致
-      const actualParticipantIds = program.participants.map(p => p.id);
+      const actualParticipantIds = program.participantPrograms.map(pp => pp.participant.id);
       const declaredParticipantIds = program.participantIds || [];
       
       const missingInActual = declaredParticipantIds.filter(id => !actualParticipantIds.includes(id));

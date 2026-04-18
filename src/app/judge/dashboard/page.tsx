@@ -130,8 +130,8 @@ export default function JudgeDashboard() {
 
   const displayName = profile?.name || session?.user?.name || '评委';
   const displayAvatar = profile?.avatar ? (
-    // 检查是否是MongoDB ObjectId (24位字符)
-    profile.avatar.length === 24
+    // 检查是否是UUID格式 (文件ID)
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(profile.avatar)
       ? `/api/files/${profile.avatar}/preview`
       : profile.avatar.startsWith('/uploads/')
         ? `/api/files/preview?path=${encodeURIComponent(profile.avatar)}`

@@ -32,7 +32,7 @@ interface StatsData {
     competitionStatus: string;
     rankingUpdateMode: string;
   };
-  programs: {
+  participantPrograms: {
     total: number;
     waiting: number;
     performing: number;
@@ -492,7 +492,7 @@ export function CompetitionStats({ competitionId }: CompetitionStatsProps) {
                       <div>
                         <div className="font-medium">{ranking.program.name}</div>
                         <div className="text-sm text-muted-foreground">
-                          {ranking.program.participants.map(p => p.name).join('、')}
+                          {ranking.program.participantPrograms.map(pp => pp.participant.name).join('、')}
                         </div>
                       </div>
                     </div>

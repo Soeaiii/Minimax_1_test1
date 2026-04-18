@@ -14,7 +14,7 @@ interface Program {
   description?: string
   order: number
   status: string
-  participants: {
+  participantPrograms: {
     id: string
     name: string
   }[]
@@ -48,7 +48,7 @@ const getStatusBadge = (status: string) => {
   return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
 }
 
-const EmptyState = memo(({ canEdit, competitionId }: { canEdit?: boolean; competitionId?: string }) => (
+const EmptyState = memo(function EmptyState({ canEdit, competitionId }: { canEdit?: boolean; competitionId?: string }) { return (
   <Card>
     <CardContent className="flex flex-col items-center justify-center py-12">
       <div className="text-center">
@@ -62,9 +62,9 @@ const EmptyState = memo(({ canEdit, competitionId }: { canEdit?: boolean; compet
       </div>
     </CardContent>
   </Card>
-))
+)}) 
 
-const ProgramCard = memo(({ program, canEdit }: { program: Program; canEdit?: boolean }) => (
+const ProgramCard = memo(function ProgramCard({ program, canEdit }: { program: Program; canEdit?: boolean }) { return (
   <Card>
     <CardHeader>
       <div className="flex items-center justify-between">
@@ -85,7 +85,7 @@ const ProgramCard = memo(({ program, canEdit }: { program: Program; canEdit?: bo
         <div className="flex items-center gap-6 text-sm text-gray-600">
           <div className="flex items-center gap-1">
             <Users className="h-4 w-4" />
-            <span>{program.participants.length} 位参赛者</span>
+            <span>{program.participantPrograms.length} 位参赛者</span>
           </div>
           <div className="flex items-center gap-1">
             <Clock className="h-4 w-4" />
@@ -115,19 +115,19 @@ const ProgramCard = memo(({ program, canEdit }: { program: Program; canEdit?: bo
           )}
         </div>
       </div>
-      {program.participants.length > 0 && (
+      {program.participantPrograms.length > 0 && (
         <div className="mt-4 pt-4 border-t">
           <h4 className="text-sm font-medium text-gray-700 mb-2">参赛者：</h4>
           <div className="flex flex-wrap gap-2">
-            {program.participants.map((participant) => (
-              <Badge key={participant.id} variant="outline">{participant.name}</Badge>
+            {program.participantPrograms.map(pp => pp.participant)((participant) => (
+              <Badge key={pp.participant.id} variant="outline">{pp.participant.name}</Badge>
             ))}
           </div>
         </div>
       )}
     </CardContent>
   </Card>
-))
+})
 
 function ProgramList({ programs, competitionId, canEdit = false }: ProgramListProps) {
   const sortedPrograms = useMemo(

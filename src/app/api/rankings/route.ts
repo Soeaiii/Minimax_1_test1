@@ -89,7 +89,7 @@ export async function POST(request: Request) {
     const competition = await prisma.competition.findUnique({
       where: { id: competitionId, tenantId: session.user.tenantId },
       include: {
-        programs: {
+        participantPrograms: {
           where: { currentStatus: 'COMPLETED' },
           include: {
             scores: {

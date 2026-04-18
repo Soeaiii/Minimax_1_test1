@@ -60,7 +60,7 @@ export async function GET(
         description: true,
         order: true,
         currentStatus: true,
-        participants: {
+        participantPrograms: {
           select: {
             id: true,
             name: true,

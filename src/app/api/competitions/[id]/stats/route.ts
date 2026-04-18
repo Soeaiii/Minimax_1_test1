@@ -71,13 +71,15 @@ export async function GET(
       prisma.program.findMany({
         where: { competitionId },
         include: {
-          participants: true
+          participantPrograms: {
+            include: { participant: true }
+          }
         }
       }).then(programs => {
         const participantIds = new Set();
         programs.forEach(program => {
-          program.participants.forEach(participant => {
-            participantIds.add(participant.id);
+          program.participantPrograms.forEach(pp => {
+            participantIds.add(pp.participant.id);
           });
         });
         return participantIds.size;
@@ -98,11 +100,15 @@ export async function GET(
         include: {
           program: {
             include: {
-              participants: {
-                select: {
-                  id: true,
-                  name: true,
-                  team: true
+              participantPrograms: {
+                include: {
+                  participant: {
+                    select: {
+                      id: true,
+                      name: true,
+                      team: true
+                    }
+                  }
                 }
               }
             }
@@ -121,11 +127,15 @@ export async function GET(
       prisma.program.findMany({
         where: { competitionId },
         include: {
-          participants: {
-            select: {
-              id: true,
-              name: true,
-              team: true
+          participantPrograms: {
+            include: {
+              participant: {
+                select: {
+                  id: true,
+                  name: true,
+                  team: true
+                }
+              }
             }
           },
           scores: {
@@ -170,7 +180,7 @@ export async function GET(
         competitionStatus: competition.status,
         rankingUpdateMode: competition.rankingUpdateMode
       },
-      programs: {
+      participantPrograms: {
         total: totalPrograms,
         waiting: waitingPrograms,
         performing: performingPrograms,

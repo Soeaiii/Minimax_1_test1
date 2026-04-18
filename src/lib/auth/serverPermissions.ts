@@ -154,7 +154,7 @@ export async function checkDataScope(
           const participant = await prisma.participant.findUnique({
             where: { id: targetId },
             include: {
-              programs: {
+              participantPrograms: {
                 include: { competition: { select: { organizerId: true } } },
               },
             },

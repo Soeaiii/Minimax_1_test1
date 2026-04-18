@@ -386,7 +386,7 @@ export default function JudgeCompetitionDetailPage() {
                         <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                           <Users className="h-4 w-4" />
                           <span>
-                            参赛者：{program.participants.map(p => p.name).join('、')}
+                            参赛者：{program.participantPrograms.map(pp => pp.participant.name).join('、')}
                           </span>
                         </div>
                       </div>

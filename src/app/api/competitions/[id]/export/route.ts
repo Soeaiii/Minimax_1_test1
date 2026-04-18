@@ -78,11 +78,15 @@ async function exportScoresData(competitionId: string, format: string, competiti
   const programsWithScores = await prisma.program.findMany({
     where: { competitionId },
     include: {
-      participants: {
-        select: {
-          id: true,
-          name: true,
-          team: true
+      participantPrograms: {
+        include: {
+          participant: {
+            select: {
+              id: true,
+              name: true,
+              team: true
+            }
+          }
         }
       },
       scores: {
@@ -162,8 +166,8 @@ async function exportScoresData(competitionId: string, format: string, competiti
     
     // 添加数据行
     for (const program of programsWithScores) {
-      const participantNames = program.participants.map(p => p.name).join('、');
-      const participantTeams = [...new Set(program.participants.map(p => p.team || '无'))].join('、');
+      const participantNames = program.participantPrograms.map(pp => pp.participant.name).join('、');
+      const participantTeams = [...new Set(program.participantPrograms.map(pp => pp.participant.team || '无'))].join('、');
       let customFields: Record<string, any> = {};
       if (program.customFields) {
         if (typeof program.customFields === 'string') {
@@ -263,7 +267,7 @@ async function exportScoresData(competitionId: string, format: string, competiti
           name: program.name,
           order: program.order,
           status: program.currentStatus,
-          participants: program.participants,
+          participants: program.participantPrograms.map(pp => pp.participant),
           customFields: customFields, // 添加自定义字段
           scores: program.scores.map(score => ({
             judgeId: score.judgeId,
@@ -294,11 +298,15 @@ async function exportRankingsData(competitionId: string, format: string, competi
     include: {
       program: {
         include: {
-          participants: {
-            select: {
-              id: true,
-              name: true,
-              team: true
+          participantPrograms: {
+            include: {
+              participant: {
+                select: {
+                  id: true,
+                  name: true,
+                  team: true
+                }
+              }
             }
           }
         }
@@ -316,8 +324,8 @@ async function exportRankingsData(competitionId: string, format: string, competi
     
     // 添加数据行
     for (const ranking of rankings) {
-      const participantNames = ranking.program.participants.map(p => p.name).join('、');
-      const participantTeams = [...new Set(ranking.program.participants.map(p => p.team || '无'))].join('、');
+      const participantNames = ranking.program.participantPrograms.map(pp => pp.participant.name).join('、');
+      const participantTeams = [...new Set(ranking.program.participantPrograms.map(pp => pp.participant.team || '无'))].join('、');
       
       excelData.push([
         ranking.rank,
@@ -374,21 +382,23 @@ async function exportParticipantsData(competitionId: string, format: string, com
   const programs = await prisma.program.findMany({
     where: { competitionId },
     include: {
-      participants: true
+      participantPrograms: {
+        include: { participant: true }
+      }
     }
   });
 
   // 获取所有唯一的选手
   const participantMap = new Map();
-  programs.forEach(program => {
-    program.participants.forEach(participant => {
-      if (!participantMap.has(participant.id)) {
-        participantMap.set(participant.id, {
-          ...participant,
+    programs.forEach(program => {
+    program.participantPrograms.forEach(pp => {
+      if (!participantMap.has(pp.participant.id)) {
+        participantMap.set(pp.participant.id, {
+          ...pp.participant,
           programs: [program.name]
         });
       } else {
-        participantMap.get(participant.id).programs.push(program.name);
+        participantMap.get(pp.participant.id).programs.push(program.name);
       }
     });
   });

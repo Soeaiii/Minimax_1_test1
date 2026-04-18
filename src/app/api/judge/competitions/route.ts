@@ -25,7 +25,7 @@ export async function GET() {
         startTime: true,
         endTime: true,
         status: true,
-        programs: {
+        participantPrograms: {
           select: {
             id: true,
             scores: {

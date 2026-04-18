@@ -80,12 +80,16 @@ export async function GET(request: Request) {
     const participants = await prisma.participant.findMany({
       where,
       include: {
-        programs: {
+        participantPrograms: {
           include: {
-            competition: {
-              select: {
-                id: true,
-                name: true,
+            program: {
+              include: {
+                competition: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
           },
@@ -156,12 +160,16 @@ export async function POST(request: Request) {
           contact: contact?.trim() || undefined,
         },
         include: {
-          programs: {
+          participantPrograms: {
             include: {
-              competition: {
-                select: {
-                  id: true,
-                  name: true,
+              program: {
+                include: {
+                  competition: {
+                    select: {
+                      id: true,
+                      name: true,
+                    },
+                  },
                 },
               },
             },

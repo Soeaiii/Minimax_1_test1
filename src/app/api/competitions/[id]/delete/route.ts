@@ -22,8 +22,8 @@ export async function DELETE(
     
     const { id } = await params;
     
-    // 检查ID是否有效的ObjectId格式
-    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+    // 检查ID是否有效的UUID格式
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
       return NextResponse.json(
         { error: '无效的比赛ID格式' },
         { status: 400 }
@@ -34,7 +34,7 @@ export async function DELETE(
     const competition = await prisma.competition.findUnique({
       where: { id },
       include: {
-        programs: {
+        participantPrograms: {
           include: {
             scores: true,
           },

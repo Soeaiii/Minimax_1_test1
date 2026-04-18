@@ -187,3 +187,109 @@ Dashboard sidebar items (role-based visibility):
 - /dashboard/audit-logs - Audit Logs
 - /dashboard/files - File Management
 - /dashboard/permissions - Admin only (roles, users, data-access, settings)
+
+## Development Commands
+
+### Package Manager
+This project uses `pnpm` (version specified in `packageManager` field). Use `pnpm` for all package operations.
+
+### Common Development Tasks
+```bash
+# Install dependencies
+pnpm install
+
+# Start development server
+pnpm dev
+
+# Build for production
+pnpm build
+
+# Start production server
+pnpm start
+
+# Lint code
+pnpm lint
+
+# Database operations
+pnpm dbpush          # Push Prisma schema changes to database
+pnpm seed            # Run seed data (creates default tenant, admin user, etc.)
+
+# Generate Prisma Client
+npx prisma generate
+
+# Open Prisma Studio (database GUI)
+npx prisma studio
+
+# Run custom scripts
+pnpm generate-templates  # Generate display templates (scripts/generate-templates.js)
+```
+
+### Environment Setup
+1. Copy `.env.with-auth` to `.env` (or create `.env` with required variables)
+2. Required environment variables:
+   - `DATABASE_URL`: PostgreSQL connection string (note: schema uses PostgreSQL but example uses MongoDB; adjust accordingly)
+   - `NEXTAUTH_SECRET`: Secret for NextAuth.js
+   - `NEXTAUTH_URL`: Base URL for authentication (e.g., `http://localhost:3000`)
+
+### Database
+- **Schema**: Defined in `prisma/schema.prisma`
+- **Provider**: PostgreSQL (as declared in schema)
+- **Multi-tenancy**: All data is tenant‑isolated via `tenantId` foreign keys
+- **Seed data**: Creates a default tenant, admin user (`admin@example.com` / `system1123`), and sample competitions/programs
+
+### Testing
+No automated test suite is currently configured. Focus on manual testing of:
+- Authentication and role‑based access
+- Real‑time display updates (SSE)
+- Excel import/export functionality
+- Multi‑tenant data isolation
+
+## Architecture Notes
+
+### Multi‑Tenancy
+- Every user, competition, program, score, etc. belongs to a `Tenant`
+- All API routes enforce tenant isolation via `tenantId` from the user's session
+- The `Tenant` model has `isActive` flag for soft deletion
+- Tenant‑specific settings stored as JSON in `Tenant.settings`
+
+### Real‑Time Display (SSE)
+- Public display page: `/display/[competitionId]`
+- SSE endpoint: `/api/display/[competitionId]/stream`
+- Display settings per competition: theme, colors, layout
+- Client‑side hook: `useScoreStream` (src/hooks/useScoreStream.ts)
+
+### Permission System
+- RBAC with granular permissions (`resource:action`)
+- User roles: ADMIN, ORGANIZER, JUDGE, USER
+- Permissions stored as JSON array in `User.permissions`
+- Middleware: `requirePermission` in `src/lib/permissions.ts`
+
+### File Uploads
+- Files stored in database (`File` model) with metadata
+- API routes: `/api/files` (upload) and `/api/files/[id]` (download)
+- File type and size validation
+
+### Excel Import/Export
+- Uses `xlsx` library
+- Batch import of participants and programs via `/api/programs/batch-import`
+- Export competition data as Excel files
+
+### API Response Format
+All API responses follow a consistent envelope:
+```typescript
+{
+  success: boolean,
+  data?: T,
+  error?: string,
+  meta?: { total: number, page: number, limit: number }
+}
+```
+
+## Codebase Conventions
+
+- **API Routes**: Use Next.js Route Handlers (App Router) with session‑based authentication
+- **Components**: Business components in `src/components/dashboard/`, reusable UI components in `src/components/ui/`
+- **Forms**: `react-hook-form` with `zod` validation schemas
+- **Styling**: Tailwind CSS with `shadcn/ui` component library
+- **State Management**: React state and context (no external state library)
+- **Error Handling**: Explicit error handling in API routes; user‑friendly messages in UI

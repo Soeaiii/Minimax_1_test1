@@ -5,8 +5,8 @@ import { Server, Database, Shield, CheckCircle, AlertTriangle } from 'lucide-rea
 interface SystemStatusProps {
   stats: {
     competitions: { total: number; active: number };
-    programs: { total: number };
-    participants: { total: number };
+    participantPrograms: { total: number };
+    participantPrograms: { total: number };
     auditLogs: { today: number };
   };
 }

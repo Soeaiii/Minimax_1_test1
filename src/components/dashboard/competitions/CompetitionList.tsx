@@ -19,7 +19,7 @@ interface Competition {
     id: string;
     name: string;
   };
-  programs: { id: string }[];
+  participantPrograms: { id: string }[];
 }
 
 const statusStyles: Record<CompetitionStatus, string> = {
@@ -36,7 +36,7 @@ const statusNames: Record<CompetitionStatus, string> = {
   ARCHIVED: '已归档',
 }
 
-const CompetitionCard = memo(({ competition, onArchive }: { competition: Competition; onArchive: (id: string) => void }) => (
+const CompetitionCard = memo(function CompetitionCard({ competition, onArchive }: { competition: Competition; onArchive: (id: string) => void }) { return (
   <Card>
     <CardHeader className="pb-2">
       <div className="flex items-center justify-between">
@@ -73,7 +73,7 @@ const CompetitionCard = memo(({ competition, onArchive }: { competition: Competi
       </div>
     </CardContent>
   </Card>
-))
+)})
 
 export function CompetitionList() {
   const [competitions, setCompetitions] = useState<Competition[]>([]);

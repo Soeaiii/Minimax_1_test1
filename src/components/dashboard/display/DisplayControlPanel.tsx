@@ -185,7 +185,7 @@ export function DisplayControlPanel({
                 <Avatar className="h-8 w-8">
                   <AvatarImage
                     src={judge.avatar ? (
-                      judge.avatar.length === 24
+                      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(judge.avatar)
                         ? `/api/files/${judge.avatar}/preview`
                         : judge.avatar.startsWith('/api/files/')
                           ? judge.avatar 

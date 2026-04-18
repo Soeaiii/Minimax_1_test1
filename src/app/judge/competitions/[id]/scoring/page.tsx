@@ -537,15 +537,15 @@ export default function ScoringPage() {
                   ))}
                   
                   {/* 显示参赛者总数 */}
-                  {currentProgram.participants.length > PARTICIPANTS_DISPLAY_LIMIT && !showAllParticipants && (
+                  {currentProgram.participantPrograms.length > PARTICIPANTS_DISPLAY_LIMIT && !showAllParticipants && (
                     <Badge variant="outline" className="text-xs cursor-pointer" onClick={toggleParticipantsDisplay}>
-                      +{currentProgram.participants.length - PARTICIPANTS_DISPLAY_LIMIT}人 <ChevronDown className="h-3 w-3 ml-1" />
+                      +{currentProgram.participantPrograms.length - PARTICIPANTS_DISPLAY_LIMIT}人 <ChevronDown className="h-3 w-3 ml-1" />
                     </Badge>
                   )}
                 </div>
                 
                 {/* 折叠/展开按钮 */}
-                {currentProgram.participants.length > PARTICIPANTS_DISPLAY_LIMIT && (
+                {currentProgram.participantPrograms.length > PARTICIPANTS_DISPLAY_LIMIT && (
                   <Button 
                     variant="ghost" 
                     size="sm" 
@@ -555,7 +555,7 @@ export default function ScoringPage() {
                     {showAllParticipants ? (
                       <>收起 <ChevronUp className="h-3 w-3 ml-1" /></>
                     ) : (
-                      <>显示全部{currentProgram.participants.length}名参赛者 <ChevronDown className="h-3 w-3 ml-1" /></>
+                      <>显示全部{currentProgram.participantPrograms.length}名参赛者 <ChevronDown className="h-3 w-3 ml-1" /></>
                     )}
                   </Button>
                 )}

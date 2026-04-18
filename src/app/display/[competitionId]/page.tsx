@@ -467,8 +467,8 @@ export default function DisplayPage() {
                     >
                       <AvatarImage
                         src={judgeScore.judge.avatar ? (
-                          // 检查是否是MongoDB ObjectId (24位字符)
-                          judgeScore.judge.avatar.length === 24
+                          // 检查是否是UUID格式 (文件ID)
+                          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(judgeScore.judge.avatar)
                             ? `/api/files/${judgeScore.judge.avatar}/preview`
                             : judgeScore.judge.avatar.startsWith('/api/files/')
                               ? judgeScore.judge.avatar 

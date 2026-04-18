@@ -48,7 +48,7 @@ export async function GET(request: Request) {
             email: true,
           },
         },
-        programs: true,
+        participantPrograms: true,
       },
       orderBy: {
         createdAt: 'desc',

@@ -46,6 +46,27 @@ interface Program {
     name: string;
     status: string;
   };
+  participantPrograms: {
+    participant: {
+      id: string;
+      name: string;
+      team: string | null;
+    };
+  }[];
+  scores?: any[];
+  id: string;
+  name: string;
+  description: string | null;
+  order: number;
+  currentStatus: ProgramStatus;
+  competitionId: string;
+  createdAt: string;
+  updatedAt: string;
+  competition: {
+    id: string;
+    name: string;
+    status: string;
+  };
   participants: any[];
   scores?: any[];
 }

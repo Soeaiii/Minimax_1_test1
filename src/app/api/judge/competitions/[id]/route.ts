@@ -31,9 +31,9 @@ export async function GET(
             maxScore: true,
           },
         },
-        programs: {
+        participantPrograms: {
           include: {
-            participants: {
+            participantPrograms: {
               select: {
                 id: true,
                 name: true,

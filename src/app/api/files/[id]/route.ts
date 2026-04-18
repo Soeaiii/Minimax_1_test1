@@ -30,7 +30,7 @@ export async function DELETE(
         tenantId: session.user.tenantId,
       },
       include: {
-        programs: true,
+        participantPrograms: true,
         competitions: true,
       },
     });

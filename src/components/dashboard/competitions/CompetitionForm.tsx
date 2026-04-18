@@ -305,7 +305,7 @@ export function CompetitionForm({ initialData, isEditMode = false }: Competition
             }
             // 如果是数据库配置问题，给出特定提示
             if (responseData.code === 'P2031') {
-              errorMessage = "数据库配置问题，请联系系统管理员检查MongoDB配置";
+              errorMessage = "数据库配置问题，请联系系统管理员检查PostgreSQL配置";
             }
           } else if (responseData.message) {
             errorMessage = responseData.message;

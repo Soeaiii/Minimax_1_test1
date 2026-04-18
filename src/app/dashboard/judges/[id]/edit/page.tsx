@@ -95,7 +95,7 @@ export default function EditJudgePage() {
       // 设置头像预览
       if (data.avatar) {
         // 如果是文件ID，使用API路由预览
-        if (data.avatar.length === 24) { // MongoDB ObjectId长度
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.avatar)) { // UUID格式
           setAvatarPreview(`/api/files/${data.avatar}/preview`);
         } else {
           // 如果是路径，使用路径预览API
