@@ -31,12 +31,16 @@ export async function GET(
             maxScore: true,
           },
         },
-        participantPrograms: {
+        programs: {
           include: {
             participantPrograms: {
-              select: {
-                id: true,
-                name: true,
+              include: {
+                participant: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
           },
@@ -54,7 +58,17 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(competition);
+    return NextResponse.json({
+      id: competition.id,
+      name: competition.name,
+      description: competition.description,
+      startDate: competition.startTime,
+      endDate: competition.endTime,
+      venue: null,
+      status: competition.status,
+      scoringCriteria: competition.scoringCriteria,
+      programs: competition.programs,
+    });
   } catch (error) {
     console.error('Error fetching competition:', error);
     return NextResponse.json(

@@ -15,9 +15,15 @@ export async function GET() {
       );
     }
 
-    // 获取裁判参与的比赛列表
-    // 这里我们获取所有比赛，在实际应用中应该根据裁判分配来过滤
     const competitions = await prisma.competition.findMany({
+      where: {
+        judgeAssignments: {
+          some: {
+            judgeId: session.user.id,
+            isActive: true,
+          },
+        },
+      },
       select: {
         id: true,
         name: true,
@@ -25,7 +31,7 @@ export async function GET() {
         startTime: true,
         endTime: true,
         status: true,
-        participantPrograms: {
+        programs: {
           select: {
             id: true,
             scores: {

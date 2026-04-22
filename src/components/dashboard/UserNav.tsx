@@ -18,6 +18,10 @@ import Link from 'next/link';
 export function UserNav() {
   const { data: session } = useSession();
   const router = useRouter();
+  const avatarSrc =
+    typeof session?.user?.avatar === 'string' && session.user.avatar.trim().length > 0
+      ? session.user.avatar
+      : undefined;
 
   // 处理登出
   const handleSignOut = async () => {
@@ -57,7 +61,7 @@ export function UserNav() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
-            <AvatarImage src="/avatars/01.png" alt={session.user.name || '用户'} />
+            <AvatarImage src={avatarSrc} alt={session.user.name || '用户'} />
             <AvatarFallback>{getInitials(session.user.name || '')}</AvatarFallback>
           </Avatar>
         </Button>

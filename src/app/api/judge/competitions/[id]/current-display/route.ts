@@ -61,10 +61,14 @@ export async function GET(
         order: true,
         currentStatus: true,
         participantPrograms: {
-          select: {
-            id: true,
-            name: true,
-            team: true,
+          include: {
+            participant: {
+              select: {
+                id: true,
+                name: true,
+                team: true,
+              },
+            },
           },
         },
       },

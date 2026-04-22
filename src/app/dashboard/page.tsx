@@ -17,13 +17,13 @@ interface DashboardStats {
     total: number;
     active: number;
   };
-  participantPrograms: {
+  programs: {
     total: number;
     waiting: number;
     performing: number;
     completed: number;
   };
-  participantPrograms: {
+  participants: {
     total: number;
     teams: number;
   };

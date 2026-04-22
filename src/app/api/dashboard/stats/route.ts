@@ -89,7 +89,7 @@ export async function GET() {
           },
           _count: {
             select: {
-              participantPrograms: true
+              programs: true
             }
           }
         },
@@ -131,13 +131,13 @@ export async function GET() {
         total: Object.values(competitionCounts).reduce((sum, count) => sum + count, 0),
         active: competitionCounts['ACTIVE'] || 0
       },
-      participantPrograms: {
+      programs: {
         total: Object.values(programCounts).reduce((sum, count) => sum + count, 0),
         waiting: programCounts['WAITING'] || 0,
         performing: programCounts['PERFORMING'] || 0,
         completed: programCounts['COMPLETED'] || 0
       },
-      participantPrograms: {
+      participants: {
         total: participantStats.total,
         teams: participantStats.teams
       },

@@ -40,9 +40,11 @@ interface Program {
   name: string;
   description?: string;
   order: number;
-  participants: Array<{
-    id: string;
-    name: string;
+  participantPrograms: Array<{
+    participant: {
+      id: string;
+      name: string;
+    };
   }>;
 }
 
@@ -66,10 +68,12 @@ interface CurrentDisplayProgram {
   description?: string;
   order: number;
   currentStatus: string;
-  participants: Array<{
-    id: string;
-    name: string;
-    team?: string;
+  participantPrograms: Array<{
+    participant: {
+      id: string;
+      name: string;
+      team?: string;
+    };
   }>;
 }
 
@@ -102,7 +106,9 @@ export default function ScoringPage() {
   };
 
   // 获取要显示的参赛者列表
-  const getDisplayParticipants = (participants: Array<{ id: string; name: string; }>) => {
+  const getDisplayParticipants = (
+    participants: Array<{ participant: { id: string; name: string } }>
+  ) => {
     if (participants.length <= PARTICIPANTS_DISPLAY_LIMIT || showAllParticipants) {
       return participants;
     }
@@ -530,7 +536,7 @@ export default function ScoringPage() {
               </span>
               <div className="flex-1">
                 <div className="flex flex-wrap gap-2">
-                  {getDisplayParticipants(currentProgram.participants).map((participant) => (
+                  {getDisplayParticipants(currentProgram.participantPrograms).map(({ participant }) => (
                     <Badge key={`program-participant-${participant.id}`} variant="secondary" className="text-xs">
                       {participant.name}
                     </Badge>

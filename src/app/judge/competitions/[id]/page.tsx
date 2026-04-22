@@ -46,7 +46,9 @@ interface Program {
   name: string;
   description?: string;
   order: number;
-  participants: Participant[];
+  participantPrograms: Array<{
+    participant: Participant;
+  }>;
 }
 
 interface Competition {

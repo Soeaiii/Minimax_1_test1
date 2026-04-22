@@ -37,36 +37,7 @@ export async function GET(request: Request) {
     const start = startDate ? new Date(startDate) : defaultStartDate;
     const end = endDate ? new Date(endDate) : defaultEndDate;
 
-    // 获取用户访问统计
-    const userAccessStats = await prisma.user.groupBy({
-      by: ['role'],
-      _count: {
-        id: true,
-      },
-      where: {
-        createdAt: {
-          gte: start,
-          lte: end,
-        },
-      },
-    });
-
-    // 获取审计日志统计
-    const auditLogStats = await prisma.auditLog.groupBy({
-      by: ['action'],
-      _count: {
-        id: true,
-      },
-      where: {
-        timestamp: {
-          gte: start,
-          lte: end,
-        },
-      },
-    });
-
-    // 获取每日访问量统计
-    const dailyStats = await prisma.auditLog.findMany({
+    const logs = await prisma.auditLog.findMany({
       where: {
         timestamp: {
           gte: start,
@@ -74,68 +45,38 @@ export async function GET(request: Request) {
         },
       },
       select: {
-        timestamp: true,
         action: true,
-      },
-    });
-
-    // 按日期分组统计
-    const dailyAccessMap = new Map<string, number>();
-    dailyStats.forEach(log => {
-      const date = log.timestamp.toISOString().split('T')[0];
-      dailyAccessMap.set(date, (dailyAccessMap.get(date) || 0) + 1);
-    });
-
-    const dailyAccess = Array.from(dailyAccessMap.entries()).map(([date, count]) => ({
-      date,
-      count,
-    }));
-
-    // 获取总体统计
-    const totalUsers = await prisma.user.count();
-    const totalAuditLogs = await prisma.auditLog.count({
-      where: {
-        timestamp: {
-          gte: start,
-          lte: end,
-        },
-      },
-    });
-
-    // 获取活跃用户数（最近7天有操作的用户）
-    const activeUsers = await prisma.auditLog.findMany({
-      where: {
-        timestamp: {
-          gte: start,
-          lte: end,
-        },
-      },
-      select: {
         userId: true,
       },
-      distinct: ['userId'],
     });
 
-    const stats = {
-      summary: {
-        totalUsers,
-        activeUsers: activeUsers.length,
-        totalAuditLogs,
-        dateRange: {
-          start: start.toISOString(),
-          end: end.toISOString(),
-        },
-      },
-      userStats: userAccessStats.map(stat => ({
-        role: stat.role,
-        count: stat._count?.id || 0,
-      })),
-      actionStats: auditLogStats.map(stat => ({
-        action: stat.action,
-        count: stat._count?.id || 0,
-      })),
-      dailyAccess: dailyAccess.sort((a, b) => a.date.localeCompare(b.date)),
+    const inferResource = (action: string) => {
+      const normalized = action.toLowerCase();
+      if (normalized.includes('user')) return 'user';
+      if (normalized.includes('judge')) return 'judge';
+      if (normalized.includes('score')) return 'score';
+      if (normalized.includes('participant')) return 'participant';
+      if (normalized.includes('program')) return 'program';
+      if (normalized.includes('competition')) return 'competition';
+      return 'system';
     };
+
+    const grouped = new Map<string, { totalAccess: number; uniqueUsers: Set<string> }>();
+    logs.forEach((log) => {
+      const resource = inferResource(log.action);
+      const current = grouped.get(resource) ?? { totalAccess: 0, uniqueUsers: new Set<string>() };
+      current.totalAccess += 1;
+      current.uniqueUsers.add(log.userId);
+      grouped.set(resource, current);
+    });
+
+    const stats = Array.from(grouped.entries()).map(([resource, value]) => ({
+      resource,
+      totalAccess: value.totalAccess,
+      allowedAccess: value.totalAccess,
+      deniedAccess: 0,
+      uniqueUsers: value.uniqueUsers.size,
+    }));
 
     return NextResponse.json({ stats });
   } catch (error) {

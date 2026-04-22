@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
     formats: ['image/webp', 'image/avif'],
   },
   // 允许局域网访问
-  allowedDevOrigins: ['192.168.1.103:3000', 'localhost:3000'],
+  allowedDevOrigins: ['127.0.0.1:3000', '192.168.1.103:3000', 'localhost:3000'],
 };
 
 export default nextConfig;

@@ -73,8 +73,16 @@ export default async function ProgramDetailPage({ params }: PageProps) {
           status: true,
         }
       },
-      participantPrograms: true,
-      programFiles: true,
+      participantPrograms: {
+        include: {
+          participant: true,
+        },
+      },
+      programFiles: {
+        include: {
+          file: true,
+        },
+      },
       scores: {
         include: {
           scoringCriteria: {
@@ -319,7 +327,10 @@ export default async function ProgramDetailPage({ params }: PageProps) {
               <CardDescription>与此节目相关的所有文件</CardDescription>
             </CardHeader>
             <CardContent>
-              <FileAttachmentList files={program.programFiles} canEdit={canEdit} />
+              <FileAttachmentList
+                files={program.programFiles.map((programFile) => programFile.file)}
+                canEdit={canEdit}
+              />
             </CardContent>
           </Card>
         </TabsContent>
