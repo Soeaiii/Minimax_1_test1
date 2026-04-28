@@ -162,7 +162,6 @@ export default function DisplayPage() {
 
   const fetchDisplayData = async () => {
     try {
-      setLoading(true);
       setError(null);
       
       console.log('正在获取比赛ID:', competitionId, '的显示数据...');
