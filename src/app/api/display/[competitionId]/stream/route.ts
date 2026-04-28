@@ -249,8 +249,7 @@ export async function GET(
       // 监听客户端断开连接
       request.signal.addEventListener('abort', cleanup);
 
-      // 30秒后自动关闭连接（防止长时间占用资源）
-      setTimeout(cleanup, 30000);
+      // 保持连接打开，客户端断开时会自动清理
     },
   });
 
