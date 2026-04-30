@@ -31,7 +31,9 @@ export interface UsePermissionsReturn {
   canDelete: (resource: string) => boolean;
   
   // 角色检查
+  isSuperAdmin: boolean;
   isAdmin: boolean;
+  isAnyAdmin: boolean;
   isOrganizer: boolean;
   isJudge: boolean;
   isUser: boolean;
@@ -124,7 +126,9 @@ export function usePermissions(): UsePermissionsReturn {
   );
   
   // 角色检查
+  const isSuperAdmin = userRole === 'SUPER_ADMIN';
   const isAdmin = userRole === 'ADMIN';
+  const isAnyAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
   const isOrganizer = userRole === 'ORGANIZER';
   const isJudge = userRole === 'JUDGE';
   const isUser = userRole === 'USER';
@@ -141,7 +145,9 @@ export function usePermissions(): UsePermissionsReturn {
     canRead,
     canUpdate,
     canDelete,
+    isSuperAdmin,
     isAdmin,
+    isAnyAdmin,
     isOrganizer,
     isJudge,
     isUser,

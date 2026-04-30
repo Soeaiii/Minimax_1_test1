@@ -29,6 +29,18 @@ const ROLE_CONFIG: Record<UserRole, {
   permissions: string[];
   level: number;
 }> = {
+  SUPER_ADMIN: {
+    name: '超级管理员',
+    description: '平台管理员，拥有所有租户的完全访问权限，可管理租户和全局设置',
+    icon: Crown,
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-50 border-purple-200',
+    permissions: [
+      '租户管理', '全局设置', '用户管理', '角色分配',
+      '系统配置', '数据备份', '审计日志', '权限管理'
+    ],
+    level: 5,
+  },
   ADMIN: {
     name: '系统管理员',
     description: '拥有系统的完全访问权限，可以管理所有用户、比赛和系统设置',
@@ -80,6 +92,7 @@ const ROLE_CONFIG: Record<UserRole, {
 
 // 角色层级关系
 const ROLE_HIERARCHY: Record<UserRole, UserRole[]> = {
+  SUPER_ADMIN: ['SUPER_ADMIN', 'ADMIN', 'ORGANIZER', 'JUDGE', 'USER'],
   ADMIN: ['ADMIN', 'ORGANIZER', 'JUDGE', 'USER'],
   ORGANIZER: ['ORGANIZER', 'JUDGE', 'USER'],
   JUDGE: ['JUDGE', 'USER'],
@@ -276,7 +289,8 @@ export function RoleSelector({
             <Separator />
             <div className="text-xs text-muted-foreground space-y-1">
               <p><strong>权限层级说明:</strong></p>
-              <p>• 管理员 (L4): 拥有所有权限，可以管理系统和所有用户</p>
+              <p>• 超级管理员 (L5): 平台管理员，管理所有租户和全局设置</p>
+              <p>• 管理员 (L4): 租户内完全权限，管理租户内所有用户和功能</p>
               <p>• 组织者 (L3): 可以创建和管理比赛，分配评委</p>
               <p>• 评委 (L2): 可以对分配的比赛进行评分</p>
               <p>• 普通用户 (L1): 基础权限，查看公开信息</p>

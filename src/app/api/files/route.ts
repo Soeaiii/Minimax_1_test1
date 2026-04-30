@@ -18,16 +18,24 @@ export async function GET() {
         tenantId: session.user.tenantId
       },
       include: {
-        participantPrograms: {
-          select: {
-            id: true,
-            name: true,
+        programFiles: {
+          include: {
+            program: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
-        competitions: {
-          select: {
-            id: true,
-            name: true,
+        competitionFiles: {
+          include: {
+            competition: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
       },
@@ -36,7 +44,16 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json(files);
+    // 转换数据格式，匹配前端期望的 programs/competitions 字段
+    const transformedFiles = files.map(file => ({
+      ...file,
+      programs: file.programFiles.map((pf: any) => pf.program),
+      competitions: file.competitionFiles.map((cf: any) => cf.competition),
+      programFiles: undefined,
+      competitionFiles: undefined,
+    }));
+
+    return NextResponse.json(transformedFiles);
   } catch (error) {
     console.error('获取文件列表失败:', error);
     return NextResponse.json(
@@ -75,8 +92,8 @@ export async function DELETE(request: NextRequest) {
         tenantId: session.user.tenantId,
       },
       include: {
-        participantPrograms: true,
-        competitions: true,
+        programFiles: true,
+        competitionFiles: true,
       },
     });
 
@@ -89,10 +106,10 @@ export async function DELETE(request: NextRequest) {
 
     // 检查权限 - 如果有文件被使用且用户不是管理员/组织者，则不允许删除
     const filesWithAssociations = filesToDelete.filter(file => 
-      file.programs.length > 0 || file.competitions.length > 0
+      file.programFiles.length > 0 || file.competitionFiles.length > 0
     );
     
-    if (filesWithAssociations.length > 0 && session.user.role !== 'ADMIN' && session.user.role !== 'ORGANIZER') {
+    if (filesWithAssociations.length > 0 && session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ORGANIZER') {
       return NextResponse.json(
         { error: `有 ${filesWithAssociations.length} 个文件正在使用中，无法删除` },
         { status: 400 }

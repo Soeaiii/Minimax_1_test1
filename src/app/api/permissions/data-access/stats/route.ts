@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     }
 
     // 只有管理员可以查看数据访问统计
-    if (session.user.role !== 'ADMIN') {
+    if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '权限不足' },
         { status: 403 }

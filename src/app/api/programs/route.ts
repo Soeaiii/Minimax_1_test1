@@ -82,6 +82,11 @@ export async function GET(request: Request) {
             organizerId: true,
           },
         },
+        participantPrograms: {
+          include: {
+            participant: true,
+          },
+        },
       },
       orderBy: [
         { competitionId: 'asc' },
@@ -91,35 +96,10 @@ export async function GET(request: Request) {
       take: pageSize,
     });
 
-    // 批量获取所有参与者信息
-    const allParticipantIds = [...new Set(programs.flatMap(p => p.participantIds || []))];
-    const participants = allParticipantIds.length > 0 
-      ? await prisma.participant.findMany({
-          where: {
-            id: { in: allParticipantIds }
-          },
-          select: {
-            id: true,
-            name: true,
-            bio: true,
-            team: true,
-            contact: true,
-            createdAt: true,
-            updatedAt: true,
-            programIds: true,
-          }
-        })
-      : [];
-
-    // 创建参与者映射
-    const participantMap = new Map(participants.map(p => [p.id, p]));
-
-    // 组装最终数据
+    // 组装最终数据，直接从 participantPrograms 关系中获取参与者
     const programsWithParticipants = programs.map(program => ({
       ...program,
-      participants: (program.participantIds || [])
-        .map(id => participantMap.get(id))
-        .filter(Boolean)
+      participants: program.participantPrograms.map(pp => pp.participant)
     }));
 
     return NextResponse.json({
@@ -177,22 +157,43 @@ export async function POST(req: Request) {
       }
     }
 
-    // 创建节目
-    const program = await prisma.program.create({
-      data: {
-        tenantId: session.user.tenantId,
-        name,
-        description,
-        competitionId,
-        participantIds,
-        order: order || 0,
-        currentStatus: currentStatus || "WAITING",
-        customFields, // 存储自定义字段
-      },
-      include: {
-        competition: true,
-        participants: true,
-      },
+    // 使用事务创建节目和参与者关联
+    const program = await prisma.$transaction(async (tx) => {
+      // 1. 创建节目
+      const newProgram = await tx.program.create({
+        data: {
+          tenantId: session.user.tenantId,
+          name,
+          description,
+          competitionId,
+          order: order || 0,
+          currentStatus: currentStatus || "WAITING",
+          customFields,
+        },
+      });
+
+      // 2. 如果有参与者，创建关联记录
+      if (participantIds && participantIds.length > 0) {
+        await tx.participantProgram.createMany({
+          data: participantIds.map(participantId => ({
+            participantId,
+            programId: newProgram.id,
+          })),
+        });
+      }
+
+      // 3. 返回完整的节目信息
+      return tx.program.findUnique({
+        where: { id: newProgram.id },
+        include: {
+          competition: true,
+          participantPrograms: {
+            include: {
+              participant: true,
+            },
+          },
+        },
+      });
     });
 
     return NextResponse.json({ program });

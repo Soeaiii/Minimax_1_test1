@@ -55,8 +55,10 @@ export default function FilesPage() {
       setLoading(true);
       const response = await fetch('/api/files');
       if (response.ok) {
-        const data = await response.json();
-        setFiles(data);
+        const responseData = await response.json();
+        // Handle API envelope format: { success, data, ... }
+        const filesData = Array.isArray(responseData) ? responseData : responseData?.data ?? [];
+        setFiles(filesData);
       } else {
         toast({
           title: "错误",
@@ -153,25 +155,26 @@ export default function FilesPage() {
   };
 
   const filteredFiles = files.filter(file => {
-    const matchesSearch = file.filename.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === 'all' || file.mimetype.startsWith(filterType);
+    const matchesSearch = (file.filename ?? '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = filterType === 'all' || (file.mimetype ?? '').startsWith(filterType);
     return matchesSearch && matchesType;
   });
 
   const getFileTypeIcon = (mimetype: string) => {
-    if (mimetype.startsWith('image/')) return Image;
-    if (mimetype.startsWith('video/')) return Video;
-    if (mimetype.startsWith('audio/')) return Music;
-    if (mimetype.includes('zip') || mimetype.includes('rar')) return Archive;
+    const mime = mimetype ?? '';
+    if (mime.startsWith('image/')) return Image;
+    if (mime.startsWith('video/')) return Video;
+    if (mime.startsWith('audio/')) return Music;
+    if (mime.includes('zip') || mime.includes('rar')) return Archive;
     return FileText;
   };
 
   const fileStats = {
     total: files.length,
-    images: files.filter(f => f.mimetype.startsWith('image/')).length,
-    videos: files.filter(f => f.mimetype.startsWith('video/')).length,
-    documents: files.filter(f => f.mimetype.startsWith('text/') || f.mimetype.includes('pdf')).length,
-    totalSize: files.reduce((sum, file) => sum + file.size, 0),
+    images: files.filter(f => (f.mimetype ?? '').startsWith('image/')).length,
+    videos: files.filter(f => (f.mimetype ?? '').startsWith('video/')).length,
+    documents: files.filter(f => (f.mimetype ?? '').startsWith('text/') || (f.mimetype ?? '').includes('pdf')).length,
+    totalSize: files.reduce((sum, file) => sum + (file.size ?? 0), 0),
   };
 
   if (loading) {

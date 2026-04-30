@@ -30,9 +30,9 @@ export default function DashboardLayout({
       router.push('/judge/dashboard');
       return;
     }
-    
+
     // 检查用户是否有访问dashboard的权限
-    const allowedRoles = ['ADMIN', 'ORGANIZER'];
+    const allowedRoles = ['ADMIN', 'ORGANIZER', 'SUPER_ADMIN'];
     if (!session?.user?.role || !allowedRoles.includes(session.user.role)) {
       // 无权限用户重定向到登录页
       router.push('/auth/login?error=access_denied');
@@ -53,7 +53,7 @@ export default function DashboardLayout({
   }
   
   // 未登录或无权限用户
-  const allowedRoles = ['ADMIN', 'ORGANIZER'];
+  const allowedRoles = ['ADMIN', 'ORGANIZER', 'SUPER_ADMIN'];
   if (status === 'unauthenticated' || !session?.user?.role || !allowedRoles.includes(session.user.role)) {
     return (
       <div className="flex h-screen w-screen items-center justify-center">

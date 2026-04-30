@@ -1,5 +1,5 @@
 // 用户角色
-export type UserRole = 'ADMIN' | 'ORGANIZER' | 'JUDGE' | 'USER';
+export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'ORGANIZER' | 'JUDGE' | 'USER';
 
 // 比赛状态
 export type CompetitionStatus = 'PENDING' | 'ACTIVE' | 'FINISHED' | 'ARCHIVED';

@@ -16,7 +16,7 @@ import { ROLE_PERMISSIONS } from '@/lib/auth/permissions'
 type PermissionInput = string | { resource: string; action: string }
 
 export function hasPermission(user: UserContext, permission: PermissionInput): boolean {
-  if (user.role === 'ADMIN') {
+  if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
     return true
   }
 
@@ -88,7 +88,7 @@ export async function getAccessibleResourceIds(
   resource: string,
   prisma: any
 ): Promise<string[]> {
-  if (user.role === 'ADMIN') {
+  if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
     // Admin可以访问租户内的所有资源
     const resources = await prisma[resource].findMany({
       where: { tenantId: user.tenantId },

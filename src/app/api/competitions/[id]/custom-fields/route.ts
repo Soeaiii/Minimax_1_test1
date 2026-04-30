@@ -69,6 +69,7 @@ export async function PATCH(
     // 验证当前用户是否有权限编辑该比赛
     if (
       session.user.role !== "ADMIN" &&
+      session.user.role !== "SUPER_ADMIN" &&
       existingCompetition.organizerId !== session.user.id
     ) {
       return NextResponse.json({ error: "无权限编辑此比赛" }, { status: 403 });

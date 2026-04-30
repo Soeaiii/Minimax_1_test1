@@ -2,19 +2,21 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  LayoutDashboard, 
-  Trophy, 
-  ListMusic, 
-  Users, 
-  FileText, 
+import { useSession } from 'next-auth/react';
+import {
+  LayoutDashboard,
+  Trophy,
+  ListMusic,
+  Users,
+  FileText,
   FileUp,
   Scale,
   Monitor,
   Shield,
   Settings,
   UserCheck,
-  Database
+  Database,
+  Building2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/lib/auth/usePermissions';
@@ -38,6 +40,12 @@ const navItems: NavItem[] = [
   { href: '/dashboard/display', label: '大屏幕管理', icon: Monitor },
   { href: '/dashboard/audit-logs', label: '审计日志', icon: FileText },
   { href: '/dashboard/files', label: '文件管理', icon: FileUp },
+  {
+    href: '/dashboard/tenants',
+    label: '租户管理',
+    icon: Building2,
+    requiredRole: 'SUPER_ADMIN',
+  },
   {
     href: '/dashboard/permissions',
     label: '权限管理',
@@ -74,14 +82,16 @@ const navItems: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { checkPermission, isAdmin, isOrganizer } = usePermissions();
+  const { data: session } = useSession();
+  const { checkPermission, isAdmin, isAnyAdmin, isOrganizer } = usePermissions();
 
   // 检查菜单项是否可见
   const isMenuItemVisible = (item: NavItem): boolean => {
     // 如果有角色要求，检查用户角色
     if (item.requiredRole) {
-      if (item.requiredRole === 'ADMIN' && !isAdmin) return false;
-      if (item.requiredRole === 'ORGANIZER' && !isOrganizer && !isAdmin) return false;
+      if (item.requiredRole === 'ADMIN' && !isAnyAdmin) return false;
+      if (item.requiredRole === 'ORGANIZER' && !isOrganizer && !isAnyAdmin) return false;
+      if (item.requiredRole === 'SUPER_ADMIN' && session?.user?.role !== 'SUPER_ADMIN') return false;
     }
 
     // 如果有权限要求，检查用户权限

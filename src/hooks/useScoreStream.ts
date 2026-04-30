@@ -55,6 +55,7 @@ export function useScoreStream(
   
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const prevDataRef = useRef<string | null>(null); // 缓存上次数据，避免无变化时重复渲染
   const maxReconnectAttempts = 5;
   const reconnectDelay = 3000; // 3秒
 
@@ -81,19 +82,35 @@ export function useScoreStream(
         setIsConnected(true);
         setError(null);
         setReconnectCount(0);
+        prevDataRef.current = null; // 重连后清空缓存，确保接收最新数据
       };
 
       eventSource.onmessage = (event) => {
         try {
           const scoreData = JSON.parse(event.data);
-          
+
           if (scoreData.error) {
             setError(scoreData.error);
             return;
           }
-          
+
           if (scoreData) {
-            setData(scoreData);
+            // 只对比关键字段，避免因 timestamp 变化导致的无意义重渲染
+            const dataKey = JSON.stringify({
+              programId: scoreData.programId,
+              programName: scoreData.programName,
+              programOrder: scoreData.programOrder,
+              averageScore: scoreData.averageScore,
+              allJudgesScored: scoreData.allJudgesScored,
+              totalJudges: scoreData.totalJudges,
+              scoredJudges: scoreData.scoredJudges,
+              participants: scoreData.participants,
+              judgeScores: scoreData.judgeScores,
+            });
+            if (dataKey !== prevDataRef.current) {
+              prevDataRef.current = dataKey;
+              setData(scoreData);
+            }
             setError(null);
           }
         } catch (err) {

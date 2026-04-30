@@ -3,7 +3,7 @@ import { getToken } from 'next-auth/jwt'
 
 export interface TenantUser {
   id: string
-  role: 'ADMIN' | 'ORGANIZER' | 'JUDGE' | 'USER'
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'ORGANIZER' | 'JUDGE' | 'USER'
   tenantId: string
   permissions: string[]
 }
@@ -57,7 +57,11 @@ export function validateTenantAccess(
   user: TenantUser,
   resourceTenantId: string
 ): boolean {
-  // ADMIN 可以访问所有租户（系统管理员）
+  // SUPER_ADMIN 可以访问所有租户（系统管理员）
+  if (user.role === 'SUPER_ADMIN') {
+    return true
+  }
+  // ADMIN 需要匹配租户才能访问
   if (user.role === 'ADMIN' && user.tenantId === resourceTenantId) {
     return true
   }

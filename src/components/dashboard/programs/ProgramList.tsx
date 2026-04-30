@@ -140,7 +140,7 @@ export function ProgramList({ searchQuery = '', competitionId, status }: Program
       }
       
       const data = await response.json();
-      setPrograms(data);
+      setPrograms(Array.isArray(data) ? data : data.data || []);
     } catch (err) {
       console.error('Error fetching programs:', err);
       const errorMessage = err instanceof Error ? err.message : '获取节目列表失败，请稍后重试';

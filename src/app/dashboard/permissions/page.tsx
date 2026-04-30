@@ -130,7 +130,9 @@ async function fetchRecentActivities(): Promise<RecentActivity[]> {
     return data.logs?.map((log: any) => ({
       id: log.id,
       type: log.action.toLowerCase(),
-      message: log.details || `${log.action} 操作`,
+      message: typeof log.details === 'object' && log.details !== null
+        ? JSON.stringify(log.details)
+        : (log.details || `${log.action} 操作`),
       timestamp: log.createdAt,
       severity: getSeverityFromAction(log.action),
       userId: log.userId,

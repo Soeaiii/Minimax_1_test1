@@ -164,6 +164,7 @@ export async function PUT(
         averageScoreFontSize: body.averageScoreFontSize,
       },
       create: {
+        tenantId: session.user.tenantId,
         competitionId: params.competitionId,
         currentProgramId: currentProgramId,
         backgroundImageId: backgroundImageId,

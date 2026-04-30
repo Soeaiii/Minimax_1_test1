@@ -14,7 +14,7 @@ export async function DELETE() {
     }
 
     // 只有管理员可以执行此操作
-    if (session.user.role !== 'ADMIN') {
+    if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '只有管理员可以删除全部选手' },
         { status: 403 }

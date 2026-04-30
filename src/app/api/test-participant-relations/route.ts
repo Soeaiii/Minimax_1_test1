@@ -8,7 +8,7 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN')) {
       return NextResponse.json(
         { error: '权限不足' },
         { status: 403 }
@@ -19,9 +19,13 @@ export async function GET() {
     const programs = await prisma.program.findMany({
       include: {
         participantPrograms: {
-          select: {
-            id: true,
-            name: true,
+          include: {
+            participant: {
+              select: {
+                id: true,
+                name: true,
+              }
+            }
           }
         },
         competition: {
@@ -36,12 +40,16 @@ export async function GET() {
     const participants = await prisma.participant.findMany({
       include: {
         participantPrograms: {
-          select: {
-            id: true,
-            name: true,
-            competition: {
+          include: {
+            program: {
               select: {
+                id: true,
                 name: true,
+                competition: {
+                  select: {
+                    name: true,
+                  }
+                }
               }
             }
           }
@@ -53,56 +61,37 @@ export async function GET() {
     const issues = [];
     
     for (const program of programs) {
-      // 检查节目的participantIds是否与实际关联的participants一致
       const actualParticipantIds = program.participantPrograms.map(pp => pp.participant.id);
-      const declaredParticipantIds = program.participantIds || [];
       
-      const missingInActual = declaredParticipantIds.filter(id => !actualParticipantIds.includes(id));
-      const missingInDeclared = actualParticipantIds.filter(id => !declaredParticipantIds.includes(id));
-      
-      if (missingInActual.length > 0 || missingInDeclared.length > 0) {
-        issues.push({
-          type: 'program',
-          id: program.id,
-          name: program.name,
-          competition: program.competition.name,
-          missingInActual,
-          missingInDeclared,
-          declaredParticipantIds,
-          actualParticipantIds
-        });
-      }
+      issues.push({
+        type: 'program',
+        id: program.id,
+        name: program.name,
+        competition: program.competition?.name || 'N/A',
+        participantCount: actualParticipantIds.length,
+        participantIds: actualParticipantIds
+      });
     }
 
     for (const participant of participants) {
-      // 检查参与者的programIds是否与实际关联的programs一致
-      const actualProgramIds = participant.programs.map(p => p.id);
-      const declaredProgramIds = participant.programIds || [];
-      
-      const missingInActual = declaredProgramIds.filter(id => !actualProgramIds.includes(id));
-      const missingInDeclared = actualProgramIds.filter(id => !declaredProgramIds.includes(id));
-      
-      if (missingInActual.length > 0 || missingInDeclared.length > 0) {
-        issues.push({
-          type: 'participant',
-          id: participant.id,
-          name: participant.name,
-          missingInActual,
-          missingInDeclared,
-          declaredProgramIds,
-          actualProgramIds
-        });
-      }
+      const actualProgramIds = participant.participantPrograms.map(pp => pp.program.id);
+
+      issues.push({
+        type: 'participant',
+        id: participant.id,
+        name: participant.name,
+        programCount: actualProgramIds.length,
+        programIds: actualProgramIds
+      });
     }
 
     return NextResponse.json({
       totalPrograms: programs.length,
       totalParticipants: participants.length,
-      issues: issues,
-      hasIssues: issues.length > 0,
+      associations: issues,
       summary: {
-        programsWithIssues: issues.filter(i => i.type === 'program').length,
-        participantsWithIssues: issues.filter(i => i.type === 'participant').length,
+        programsWithParticipants: issues.filter(i => i.type === 'program' && i.participantCount > 0).length,
+        participantsWithPrograms: issues.filter(i => i.type === 'participant' && i.programCount > 0).length,
       }
     });
   } catch (error) {

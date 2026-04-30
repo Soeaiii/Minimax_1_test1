@@ -12,8 +12,8 @@ export async function GET(
     // @ts-ignore 暂时忽略类型错误
     const session = await getServerSession(authOptions);
 
-    // 只有 ADMIN 才能访问
-    if (!session || session.user.role !== 'ADMIN') {
+    // 只有 SUPER_ADMIN 才能访问
+    if (!session || session.user.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '未授权访问' },
         { status: 401 }
@@ -89,8 +89,8 @@ export async function PUT(
     // @ts-ignore 暂时忽略类型错误
     const session = await getServerSession(authOptions);
 
-    // 只有 ADMIN 才能更新租户
-    if (!session || session.user.role !== 'ADMIN') {
+    // 只有 SUPER_ADMIN 才能更新租户
+    if (!session || session.user.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '未授权访问' },
         { status: 401 }
@@ -182,10 +182,10 @@ export async function DELETE(
     // @ts-ignore 暂时忽略类型错误
     const session = await getServerSession(authOptions);
 
-    // 只有 ADMIN 才能删除租户
-    if (!session || session.user.role !== 'ADMIN') {
+    // 只有 SUPER_ADMIN 才能删除租户
+    if (!session || session.user.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
-        { error: '未授权访问' },
+        { error: '只有超级管理员可以删除租户' },
         { status: 401 }
       );
     }

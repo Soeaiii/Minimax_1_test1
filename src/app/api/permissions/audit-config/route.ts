@@ -10,7 +10,7 @@ export async function GET() {
     return NextResponse.json({ error: '未授权访问' }, { status: 401 })
   }
 
-  if (session.user.role !== 'ADMIN') {
+  if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN') {
     return NextResponse.json({ error: '权限不足' }, { status: 403 })
   }
 
@@ -27,7 +27,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: '未授权访问' }, { status: 401 })
   }
 
-  if (session.user.role !== 'ADMIN') {
+  if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN') {
     return NextResponse.json({ error: '权限不足' }, { status: 403 })
   }
 

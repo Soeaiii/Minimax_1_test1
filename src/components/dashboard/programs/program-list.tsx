@@ -119,7 +119,7 @@ const ProgramCard = memo(function ProgramCard({ program, canEdit }: { program: P
         <div className="mt-4 pt-4 border-t">
           <h4 className="text-sm font-medium text-gray-700 mb-2">参赛者：</h4>
           <div className="flex flex-wrap gap-2">
-            {program.participantPrograms.map(pp => pp.participant)((participant) => (
+            {program.participantPrograms.map((pp) => (
               <Badge key={pp.participant.id} variant="outline">{pp.participant.name}</Badge>
             ))}
           </div>

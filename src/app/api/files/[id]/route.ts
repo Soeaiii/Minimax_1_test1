@@ -45,7 +45,7 @@ export async function DELETE(
     // 检查文件是否被使用（如果有关联的节目或比赛，可能需要额外权限检查）
     const hasAssociations = file.programs.length > 0 || file.competitions.length > 0;
 
-    if (hasAssociations && session.user.role !== 'ADMIN' && session.user.role !== 'ORGANIZER') {
+    if (hasAssociations && session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ORGANIZER') {
       return NextResponse.json(
         { error: '文件正在使用中，无法删除' },
         { status: 400 }

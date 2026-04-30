@@ -43,6 +43,7 @@ const ROLE_OPTIONS = [
   { value: 'ORGANIZER', label: '组织者' },
   { value: 'JUDGE', label: '评委' },
   { value: 'ADMIN', label: '管理员' },
+  { value: 'SUPER_ADMIN', label: '超级管理员' },
 ]
 
 const PERMISSION_GROUPS = [
@@ -184,6 +185,11 @@ export function CreateUserForm({ onUserCreated }: CreateUserFormProps) {
 
   const getDefaultPermissions = (role: UserRole): string[] => {
     switch (role) {
+      case 'SUPER_ADMIN':
+        return [
+          ...PERMISSION_GROUPS.flatMap(group => group.permissions.map(p => p.key)),
+          'system:tenants',
+        ]
       case 'ADMIN':
         return PERMISSION_GROUPS.flatMap(group => group.permissions.map(p => p.key))
       case 'ORGANIZER':

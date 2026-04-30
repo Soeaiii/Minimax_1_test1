@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import crypto from 'crypto';
 
 interface JudgeScore {
@@ -24,11 +26,13 @@ export async function GET(
   context: { params: Promise<{ competitionId: string }> }
 ) {
   try {
+    // @ts-ignore
+    const session = await getServerSession(authOptions);
     const params = await context.params;
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token');
 
-    // 并行获取显示设置和比赛信息
+    // 获取比赛信息
     const competition = await prisma.competition.findUnique({
       where: { id: params.competitionId },
       select: { id: true, name: true, description: true, status: true, tenantId: true },
@@ -38,7 +42,7 @@ export async function GET(
       return NextResponse.json({ error: '比赛不存在' }, { status: 404 });
     }
 
-    // 获取显示设置（验证租户）
+    // 获取显示设置
     const displaySettingsResult = await prisma.displaySettings.findUnique({
       where: { competitionId: params.competitionId },
       include: { backgroundImage: { select: { id: true, filename: true, path: true } } },
@@ -47,7 +51,6 @@ export async function GET(
     // 如果没有显示设置，创建默认设置
     let displaySettings = displaySettingsResult;
     if (!displaySettings) {
-      // 生成公开Token
       const publicToken = crypto.randomBytes(16).toString('hex');
       displaySettings = await prisma.displaySettings.create({
         data: {
@@ -76,7 +79,6 @@ export async function GET(
         include: { backgroundImage: { select: { id: true, filename: true, path: true } } },
       });
     } else if (!displaySettings.publicToken) {
-      // 如果已有设置但没有Token，生成一个
       const publicToken = crypto.randomBytes(16).toString('hex');
       displaySettings = await prisma.displaySettings.update({
         where: { competitionId: params.competitionId },
@@ -85,8 +87,9 @@ export async function GET(
       });
     }
 
-    // 验证Token（如果设置了Token则必须验证）
-    if (displaySettings.publicToken) {
+    // 验证Token：已登录用户（有正确 tenantId）可以跳过 token 验证
+    const isLoggedInUser = session?.user && session.user.tenantId === competition.tenantId;
+    if (displaySettings.publicToken && !isLoggedInUser) {
       if (!token || token !== displaySettings.publicToken) {
         return NextResponse.json({ error: '无效的访问Token' }, { status: 401 });
       }
@@ -97,13 +100,13 @@ export async function GET(
       displaySettings.currentProgramId
         ? prisma.program.findUnique({
             where: { id: displaySettings.currentProgramId },
-            select: { id: true, name: true, description: true, order: true, participantPrograms: { select: { id: true, name: true, team: true } }, customFields: true },
+            select: { id: true, name: true, description: true, order: true, participantPrograms: { include: { participant: { select: { id: true, name: true, team: true } } } }, customFields: true },
           })
         : Promise.resolve(null),
-      prisma.user.findMany({ where: { role: 'JUDGE' }, select: { id: true, name: true, avatar: true } }),
+      prisma.user.findMany({ where: { role: 'JUDGE', tenantId: competition.tenantId }, select: { id: true, name: true, avatar: true } }),
       prisma.program.findMany({
         where: { competitionId: params.competitionId },
-        select: { id: true, name: true, order: true, currentStatus: true, participantPrograms: { select: { id: true, name: true, team: true } }, customFields: true },
+        select: { id: true, name: true, order: true, currentStatus: true, participantPrograms: { include: { participant: { select: { id: true, name: true, team: true } } } }, customFields: true },
         orderBy: { order: 'asc' },
       }),
     ]);
@@ -143,13 +146,22 @@ export async function GET(
       }
     }
 
+    // 转换数据：将 participantPrograms 展平为 participants
+    const transformProgram = (program: any) => {
+      if (!program) return null;
+      return {
+        ...program,
+        participants: program.participantPrograms?.map((pp: any) => pp.participant) || [],
+      };
+    };
+
     const displayData = {
       settings: displaySettings,
       competition,
-      currentProgram,
+      currentProgram: transformProgram(currentProgram),
       judgeScores,
       judges,
-      programs,
+      programs: programs.map(transformProgram),
     };
 
     return NextResponse.json(displayData);

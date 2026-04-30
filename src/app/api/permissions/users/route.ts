@@ -10,7 +10,7 @@ const createUserSchema = z.object({
   name: z.string().min(2, { message: '姓名至少需要2个字符' }),
   email: z.string().email({ message: '请输入有效的电子邮箱地址' }),
   password: z.string().min(6, { message: '密码至少需要6个字符' }),
-  role: z.enum(['USER', 'ORGANIZER', 'JUDGE', 'ADMIN']),
+  role: z.enum(['USER', 'ORGANIZER', 'JUDGE', 'ADMIN', 'SUPER_ADMIN']),
   permissions: z.array(z.string()).optional(),
   isActive: z.boolean().optional().default(true),
 })
@@ -19,7 +19,7 @@ const createUserSchema = z.object({
 const updateUserSchema = z.object({
   name: z.string().min(2).optional(),
   email: z.string().email().optional(),
-  role: z.enum(['USER', 'ORGANIZER', 'JUDGE', 'ADMIN']).optional(),
+  role: z.enum(['USER', 'ORGANIZER', 'JUDGE', 'ADMIN', 'SUPER_ADMIN']).optional(),
   permissions: z.array(z.string()).optional(),
   isActive: z.boolean().optional(),
 })
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 只有管理员可以查看用户列表
-    if (token.role !== 'ADMIN') {
+    if (token.role !== 'ADMIN' && token.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '权限不足' },
         { status: 403 }
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 只有管理员可以创建用户
-    if (token.role !== 'ADMIN') {
+    if (token.role !== 'ADMIN' && token.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '权限不足，只有管理员可以创建用户' },
         { status: 403 }
@@ -139,6 +139,14 @@ export async function POST(request: NextRequest) {
 
     const { name, email, password, role, permissions, isActive } = result.data
     const tenantId = token.tenantId as string
+
+    // 只有 SUPER_ADMIN 才能创建 SUPER_ADMIN 用户
+    if (role === 'SUPER_ADMIN' && token.role !== 'SUPER_ADMIN') {
+      return NextResponse.json(
+        { error: '只有超级管理员可以创建超级管理员用户' },
+        { status: 403 }
+      )
+    }
 
     // 检查邮箱是否已存在
     const existingUser = await prisma.user.findFirst({
@@ -226,7 +234,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // 只有管理员可以批量更新用户
-    if (token.role !== 'ADMIN') {
+    if (token.role !== 'ADMIN' && token.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '权限不足' },
         { status: 403 }
@@ -292,6 +300,17 @@ export async function PUT(request: NextRequest) {
 // 根据角色获取默认权限
 function getDefaultPermissions(role: UserRole): string[] {
   switch (role) {
+    case 'SUPER_ADMIN':
+      return [
+        'user:create', 'user:read', 'user:update', 'user:delete',
+        'competition:create', 'competition:read', 'competition:update', 'competition:delete',
+        'program:create', 'program:read', 'program:update', 'program:delete',
+        'participant:create', 'participant:read', 'participant:update', 'participant:delete',
+        'score:create', 'score:read', 'score:update', 'score:delete',
+        'judge:assign', 'judge:remove',
+        'system:settings', 'system:tenants', 'data:export', 'audit:read',
+      ]
+
     case 'ADMIN':
       return [
         'user:create', 'user:read', 'user:update', 'user:delete',

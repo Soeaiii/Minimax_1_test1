@@ -585,46 +585,56 @@ export default function DisplayPage() {
                     </span>
                   </div>
 
-                  {/* 动态自定义字段 */}
-                  {settings.selectedParticipantFieldNames && settings.selectedParticipantFieldNames.length > 0 && (
-                    <>
-                      {settings.selectedParticipantFieldNames.map((fieldName) => {
-                        // 从 currentProgram.customFields 获取值
-                        let value: any = undefined;
-                        const customFieldsRaw = currentProgram?.customFields;
-                        if (customFieldsRaw) {
-                          try {
-                            const obj = typeof customFieldsRaw === 'string' ? JSON.parse(customFieldsRaw) : customFieldsRaw;
-                            value = obj[fieldName];
-                          } catch (e) {
-                            console.error('解析 customFields 失败', e);
-                          }
-                        }
-                        return (
-                          <div key={fieldName} className="flex items-center" style={{ gap: `${settings.participantCardGap || 16}px` }}>
-                            <span
-                              className="font-medium whitespace-nowrap min-w-fit"
-                              style={{
-                                color: settings.programInfoColor || '#ffffff',
-                                fontSize: `${settings.participantLabelFontSize || 56}px`,
-                              }}
-                            >
-                              {fieldName}:
-                            </span>
-                            <span
-                              className="font-bold"
-                              style={{
-                                color: settings.programInfoColor || '#ffffff',
-                                fontSize: `${settings.participantValueFontSize || 56}px`,
-                              }}
-                            >
-                              {value ?? '—'}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </>
-                  )}
+                  {/* 动态自定义字段（仅显示有值的字段） */}
+                  {settings.selectedParticipantFieldNames && settings.selectedParticipantFieldNames.length > 0 && (() => {
+                    // 解析 customFields 一次，避免每条字段重复解析
+                    let customFieldsObj: Record<string, unknown> = {};
+                    const customFieldsRaw = currentProgram?.customFields;
+                    if (customFieldsRaw) {
+                      try {
+                        customFieldsObj = typeof customFieldsRaw === 'string' ? JSON.parse(customFieldsRaw) : customFieldsRaw;
+                      } catch (e) {
+                        console.error('解析 customFields 失败', e);
+                      }
+                    }
+                    // 只渲染有实际值的字段
+                    const validFields = settings.selectedParticipantFieldNames.filter(
+                      (fieldName) => {
+                        const val = customFieldsObj[fieldName];
+                        return val != null && val !== '';
+                      }
+                    );
+                    if (validFields.length === 0) return null;
+                    return (
+                      <>
+                        {validFields.map((fieldName) => {
+                          const value = customFieldsObj[fieldName];
+                          return (
+                            <div key={fieldName} className="flex items-center" style={{ gap: `${settings.participantCardGap || 16}px` }}>
+                              <span
+                                className="font-medium whitespace-nowrap min-w-fit"
+                                style={{
+                                  color: settings.programInfoColor || '#ffffff',
+                                  fontSize: `${settings.participantLabelFontSize || 56}px`,
+                                }}
+                              >
+                                {fieldName}:
+                              </span>
+                              <span
+                                className="font-bold"
+                                style={{
+                                  color: settings.programInfoColor || '#ffffff',
+                                  fontSize: `${settings.participantValueFontSize || 56}px`,
+                                }}
+                              >
+                                {String(value)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </>
+                    );
+                  })()}
                 </div>
                 
                 {/* 右侧：平均分 */}

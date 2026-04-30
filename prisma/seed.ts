@@ -41,7 +41,46 @@ async function main() {
 
   console.log('✓ 已创建默认租户:', defaultTenant.name)
 
+  // Create system tenant for super admin
+  const systemTenant = await prisma.tenant.create({
+    data: {
+      name: '系统管理',
+      domain: 'system.internal',
+      settings: {
+        isSystem: true,
+        allowRegistration: false,
+        maxUsers: 100,
+        features: ['system'],
+      },
+      isActive: true,
+    },
+  })
+  console.log('✓ 已创建系统租户:', systemTenant.name)
+
   const hashedPassword = await bcrypt.hash('123456', 12)
+
+  // Create super admin
+  await prisma.user.create({
+    data: {
+      tenantId: systemTenant.id,
+      name: '超级管理员',
+      email: 'superadmin@example.com',
+      password: hashedPassword,
+      role: 'SUPER_ADMIN',
+      permissions: [
+        'tenant:create', 'tenant:read', 'tenant:update', 'tenant:delete',
+        'user:create', 'user:read', 'user:update', 'user:delete',
+        'competition:create', 'competition:read', 'competition:update', 'competition:delete',
+        'program:create', 'program:read', 'program:update', 'program:delete',
+        'participant:create', 'participant:read', 'participant:update', 'participant:delete',
+        'score:create', 'score:read', 'score:update', 'score:delete',
+        'judge:assign', 'judge:remove',
+        'system:settings', 'data:export', 'audit:read', 'audit:write',
+      ],
+      isActive: true,
+    },
+  })
+  console.log('✓ 已创建超级管理员: superadmin@example.com / 123456')
 
   const [admin, organizer, judge1, judge2, judge3] = await Promise.all([
     prisma.user.create({

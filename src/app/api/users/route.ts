@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     const session = await getServerSession(authOptions);
     
     // 检查用户是否已登录且是管理员
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ORGANIZER')) {
       return NextResponse.json(
         { error: '未授权访问' },
         { status: 401 }
@@ -23,6 +23,7 @@ export async function GET(request: Request) {
     const search = searchParams.get('search');
     
     let where: any = {
+      tenantId: session.user.tenantId, // 添加租户过滤
       isDeleted: false, // 只返回未删除的用户
     };
     

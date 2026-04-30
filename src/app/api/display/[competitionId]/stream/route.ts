@@ -30,17 +30,21 @@ async function getCurrentProgramScores(competitionId: string, selectedJudgeIds?:
       return null;
     }
 
-    // 获取当前节目信息
+    // 获取当前节目信息（含选手数据）
     const currentProgram = await prisma.program.findUnique({
       where: {
         id: displaySettings.currentProgramId,
       },
       include: {
         participantPrograms: {
-          select: {
-            id: true,
-            name: true,
-            team: true,
+          include: {
+            participant: {
+              select: {
+                id: true,
+                name: true,
+                team: true,
+              },
+            },
           },
         },
       },
@@ -140,11 +144,16 @@ async function getCurrentProgramScores(competitionId: string, selectedJudgeIds?:
       ? judgeScores.reduce((sum, js) => sum + js.totalScore, 0) / judgeScores.length
       : null;
 
+    // 将 participantPrograms 转换为 participants 数组
+    const participants = (currentProgram as any).participantPrograms
+      ?.map((pp: any) => pp.participant)
+      .filter(Boolean) || [];
+
     return {
       programId: currentProgram.id,
       programName: currentProgram.name,
       programOrder: currentProgram.order,
-      participants: currentProgram.participants,
+      participants,
       judgeScores,
       averageScore: averageScore !== null ? Math.round(averageScore * 100) / 100 : null,
       allJudgesScored,
@@ -239,6 +248,7 @@ export async function GET(
         if (isClosed) return;
         isClosed = true;
         clearInterval(interval);
+        clearInterval(heartbeat);
         try {
           controller.close();
         } catch (error) {
@@ -249,8 +259,16 @@ export async function GET(
       // 监听客户端断开连接
       request.signal.addEventListener('abort', cleanup);
 
-      // 30秒后自动关闭连接（防止长时间占用资源）
-      setTimeout(cleanup, 30000);
+      // 发送心跳保持连接（每15秒），防止代理/负载均衡器超时断开
+      const heartbeat = setInterval(() => {
+        if (!isClosed) {
+          try {
+            controller.enqueue(encoder.encode(`: heartbeat\n\n`));
+          } catch {
+            cleanup();
+          }
+        }
+      }, 15000);
     },
   });
 

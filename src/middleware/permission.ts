@@ -9,7 +9,7 @@ export interface Permission {
 
 export interface UserContext {
   id: string
-  role: 'ADMIN' | 'ORGANIZER' | 'JUDGE' | 'USER'
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'ORGANIZER' | 'JUDGE' | 'USER'
   tenantId: string
   permissions: string[]
 }
@@ -17,7 +17,7 @@ export interface UserContext {
 export class PermissionChecker {
   static checkPermission(user: UserContext, permission: Permission): boolean {
     // Admin拥有所有权限
-    if (user.role === 'ADMIN') {
+    if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
       return true
     }
 
@@ -78,7 +78,7 @@ export class PermissionChecker {
   }
 
   static getResourcePermissions(user: UserContext, resource: string): string[] {
-    if (user.role === 'ADMIN') {
+    if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
       return ['create', 'read', 'update', 'delete', 'manage']
     }
 

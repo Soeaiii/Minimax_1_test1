@@ -270,6 +270,7 @@ export function CompetitionForm({ initialData, isEditMode = false }: Competition
       // 使用绝对路径，确保请求发送到正确的服务器
       const response = await fetch(url, {
         method,
+        credentials: 'include',
         headers: {
           "Content-Type": "application/json",
         },
@@ -576,12 +577,12 @@ export function CompetitionForm({ initialData, isEditMode = false }: Competition
                   step="0.1"
                   min="0"
                   max="1"
-                  value={criteria.weight}
+                  value={criteria.weight ?? ''}
                   onChange={(e) =>
                     updateScoringCriteria(
                       index,
                       "weight",
-                      parseFloat(e.target.value)
+                      e.target.value === '' ? 0 : parseFloat(e.target.value)
                     )
                   }
                 />
@@ -592,12 +593,12 @@ export function CompetitionForm({ initialData, isEditMode = false }: Competition
                   type="number"
                   step="1"
                   min="1"
-                  value={criteria.maxScore}
+                  value={criteria.maxScore ?? ''}
                   onChange={(e) =>
                     updateScoringCriteria(
                       index,
                       "maxScore",
-                      parseFloat(e.target.value)
+                      e.target.value === '' ? 0 : parseInt(e.target.value, 10)
                     )
                   }
                 />

@@ -15,7 +15,7 @@ export async function PUT(
     const session = await getServerSession(authOptions);
     
     // 只有管理员可以修改用户角色
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN')) {
       return NextResponse.json(
         { error: '无权限修改用户角色' },
         { status: 403 }
@@ -60,6 +60,14 @@ export async function PUT(
       );
     }
     
+    // 只有 SUPER_ADMIN 才能将用户设为 SUPER_ADMIN
+    if (role === 'SUPER_ADMIN' && session.user.role !== 'SUPER_ADMIN') {
+      return NextResponse.json(
+        { error: '只有超级管理员可以设置超级管理员角色' },
+        { status: 403 }
+      );
+    }
+
     // 如果角色没有变化，直接返回
     if (targetUser.role === role) {
       return NextResponse.json({
@@ -125,7 +133,7 @@ export async function DELETE(
     const session = await getServerSession(authOptions);
     
     // 只有管理员可以删除用户
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN')) {
       return NextResponse.json(
         { error: '无权限删除用户' },
         { status: 403 }

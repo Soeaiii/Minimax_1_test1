@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     // @ts-ignore
     const session = await getServerSession(authOptions);
     
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN')) {
       return NextResponse.json(
         { error: '权限不足' },
         { status: 403 }
@@ -32,6 +32,11 @@ export async function GET(request: Request) {
 
     // 构建查询条件
     const where: any = {};
+
+    // 租户隔离：SUPER_ADMIN 可查看所有租户日志，其他角色仅限当前租户
+    if (session.user.role !== 'SUPER_ADMIN') {
+      where.tenantId = session.user.tenantId;
+    }
 
     if (search) {
       where.OR = [
@@ -174,7 +179,7 @@ export async function DELETE(request: Request) {
     const session = await getServerSession(authOptions);
     
     // 检查用户是否已登录且是管理员
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN')) {
       return NextResponse.json(
         { error: '未授权操作，只有管理员可以清理审计日志' },
         { status: 403 }

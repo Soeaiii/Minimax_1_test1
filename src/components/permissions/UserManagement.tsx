@@ -74,11 +74,12 @@ interface UserListResponse {
 }
 
 const ROLE_OPTIONS = [
-  { value: '', label: '全部角色' },
+  { value: 'all', label: '全部角色' },
   { value: 'USER', label: '普通用户' },
   { value: 'ORGANIZER', label: '组织者' },
   { value: 'JUDGE', label: '评委' },
   { value: 'ADMIN', label: '管理员' },
+  { value: 'SUPER_ADMIN', label: '超级管理员' },
 ]
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -86,6 +87,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   ORGANIZER: '组织者',
   JUDGE: '评委',
   ADMIN: '管理员',
+  SUPER_ADMIN: '超级管理员',
 }
 
 const ROLE_COLORS: Record<UserRole, string> = {
@@ -93,13 +95,14 @@ const ROLE_COLORS: Record<UserRole, string> = {
   ORGANIZER: 'blue',
   JUDGE: 'green',
   ADMIN: 'red',
+  SUPER_ADMIN: 'purple',
 }
 
 export function UserManagement() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [roleFilter, setRoleFilter] = useState('')
+  const [roleFilter, setRoleFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [pagination, setPagination] = useState({
     page: 1,
@@ -115,7 +118,7 @@ export function UserManagement() {
         page: currentPage.toString(),
         limit: '10',
         ...(search && { search }),
-        ...(roleFilter && { role: roleFilter }),
+        ...(roleFilter && roleFilter !== 'all' && { role: roleFilter }),
       })
 
       const response = await fetch(`/api/permissions/users?${params}`)

@@ -156,7 +156,7 @@ export function AdminGuard({
 }) {
   return (
     <RoleGuard
-      allowedRoles={['ADMIN']}
+      allowedRoles={['ADMIN', 'SUPER_ADMIN']}
       fallback={fallback}
       showError={showError}
     >
@@ -177,7 +177,7 @@ export function OrganizerGuard({
 }) {
   return (
     <RoleGuard
-      allowedRoles={['ADMIN', 'ORGANIZER']}
+      allowedRoles={['ADMIN', 'SUPER_ADMIN', 'ORGANIZER']}
       fallback={fallback}
       showError={showError}
     >
@@ -198,7 +198,7 @@ export function JudgeGuard({
 }) {
   return (
     <RoleGuard
-      allowedRoles={['ADMIN', 'ORGANIZER', 'JUDGE']}
+      allowedRoles={['ADMIN', 'SUPER_ADMIN', 'ORGANIZER', 'JUDGE']}
       fallback={fallback}
       showError={showError}
     >

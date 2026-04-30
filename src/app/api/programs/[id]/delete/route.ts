@@ -40,6 +40,7 @@ export async function DELETE(
     // 权限检查：只有管理员和比赛组织者可以删除节目
     if (
       session.user.role !== UserRole.ADMIN &&
+      session.user.role !== 'SUPER_ADMIN' &&
       program.competition.organizerId !== session.user.id
     ) {
       return NextResponse.json(

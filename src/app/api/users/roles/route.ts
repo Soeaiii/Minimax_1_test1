@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     const userId = searchParams.get('userId');
     
     // 如果指定了userId且当前用户不是管理员，只能查看自己的信息
-    if (userId && userId !== session.user.id && session.user.role !== 'ADMIN') {
+    if (userId && userId !== session.user.id && (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN')) {
       return NextResponse.json(
         { error: '无权限查看其他用户信息' },
         { status: 403 }

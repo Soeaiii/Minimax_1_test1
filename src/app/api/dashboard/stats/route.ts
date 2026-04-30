@@ -15,7 +15,9 @@ export async function GET() {
       );
     }
 
-    // 优化后的统计数据获取 - 减少查询次数
+    const tenantId = session.user.tenantId;
+
+    // 优化后的统计数据获取 - 减少查询次数（全部租户隔离）
     const [
       competitionStats,
       programStats,
@@ -27,27 +29,31 @@ export async function GET() {
       // 比赛统计 - 合并查询
       prisma.competition.groupBy({
         by: ['status'],
+        where: { tenantId },
         _count: {
           _all: true
         }
       }),
-      
+
       // 节目统计 - 合并查询
       prisma.program.groupBy({
         by: ['currentStatus'],
+        where: { tenantId },
         _count: {
           _all: true
         }
       }),
-      
+
       // 选手统计 - 合并查询
       prisma.participant.aggregate({
+        where: { tenantId },
         _count: {
           _all: true
         }
       }).then(async (totalCount) => {
         const teamsCount = await prisma.participant.findMany({
           where: {
+            tenantId,
             team: { not: null }
           },
           select: { team: true },
@@ -58,16 +64,17 @@ export async function GET() {
           teams: teamsCount.length
         };
       }),
-      
+
       // 审计日志统计 - 合并查询
       prisma.auditLog.aggregate({
         _count: {
           _all: true
         },
-        where: {}
+        where: { tenantId }
       }).then(async (totalCount) => {
         const todayCount = await prisma.auditLog.count({
           where: {
+            tenantId,
             timestamp: {
               gte: new Date(new Date().setHours(0, 0, 0, 0))
             }
@@ -78,9 +85,10 @@ export async function GET() {
           today: todayCount
         };
       }),
-      
+
       // 最近的比赛
       prisma.competition.findMany({
+        where: { tenantId },
         include: {
           organizer: {
             select: {
@@ -98,9 +106,10 @@ export async function GET() {
         },
         take: 5
       }),
-      
+
       // 最近的审计日志
       prisma.auditLog.findMany({
+        where: { tenantId },
         include: {
           user: {
             select: {

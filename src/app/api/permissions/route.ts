@@ -47,7 +47,7 @@ export async function GET(request: Request) {
     }
     
     // 返回完整的权限配置（仅管理员可查看）
-    if (session.user.role !== 'ADMIN') {
+    if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '无权限查看权限配置' },
         { status: 403 }

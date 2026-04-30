@@ -129,8 +129,10 @@ export function ProgramListByCompetition({ searchQuery = '', statusFilter }: Pro
     try {
       setLoading(true);
       
-      // 获取比赛列表
-      const competitionsResponse = await fetch('/api/competitions');
+      // 获取比赛列表 - 添加 credentials
+      const competitionsResponse = await fetch('/api/competitions', {
+        credentials: 'include'
+      });
       if (!competitionsResponse.ok) {
         throw new Error('获取比赛列表失败');
       }
@@ -145,7 +147,9 @@ export function ProgramListByCompetition({ searchQuery = '', statusFilter }: Pro
       const queryString = params.toString();
       const programsUrl = `/api/programs${queryString ? `?${queryString}` : ''}`;
       
-      const programsResponse = await fetch(programsUrl);
+      const programsResponse = await fetch(programsUrl, {
+        credentials: 'include'
+      });
       if (!programsResponse.ok) {
         throw new Error('获取节目列表失败');
       }
@@ -190,6 +194,7 @@ export function ProgramListByCompetition({ searchQuery = '', statusFilter }: Pro
     try {
       const response = await fetch(`/api/programs/${id}/simple-update`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -433,4 +438,4 @@ export function ProgramListByCompetition({ searchQuery = '', statusFilter }: Pro
       })}
     </div>
   );
-} 
+}

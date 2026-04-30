@@ -69,8 +69,8 @@ export default function AuditLogsPage() {
   
   // 筛选状态
   const [searchQuery, setSearchQuery] = useState('');
-  const [actionFilter, setActionFilter] = useState<string>('');
-  const [userIdFilter, setUserIdFilter] = useState<string>('');
+  const [actionFilter, setActionFilter] = useState<string>('all');
+  const [userIdFilter, setUserIdFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<{
     from?: Date;
     to?: Date;
@@ -90,10 +90,10 @@ export default function AuditLogsPage() {
         page: page.toString(),
         limit: pagination.limit.toString(),
       });
-      
+
       if (searchQuery) params.append('search', searchQuery);
-      if (actionFilter) params.append('action', actionFilter);
-      if (userIdFilter) params.append('userId', userIdFilter);
+      if (actionFilter && actionFilter !== 'all') params.append('action', actionFilter);
+      if (userIdFilter && userIdFilter !== 'all') params.append('userId', userIdFilter);
       if (dateRange.from) params.append('startDate', dateRange.from.toISOString());
       if (dateRange.to) params.append('endDate', dateRange.to.toISOString());
       
@@ -139,8 +139,8 @@ export default function AuditLogsPage() {
   // 处理重置筛选
   const handleResetFilters = () => {
     setSearchQuery('');
-    setActionFilter('');
-    setUserIdFilter('');
+    setActionFilter('all');
+    setUserIdFilter('all');
     setDateRange({});
     setPagination(prev => ({ ...prev, page: 1 }));
     setTimeout(() => fetchLogs(1), 100);
@@ -151,8 +151,8 @@ export default function AuditLogsPage() {
     try {
       const params = new URLSearchParams();
       if (searchQuery) params.append('search', searchQuery);
-      if (actionFilter) params.append('action', actionFilter);
-      if (userIdFilter) params.append('userId', userIdFilter);
+      if (actionFilter && actionFilter !== 'all') params.append('action', actionFilter);
+      if (userIdFilter && userIdFilter !== 'all') params.append('userId', userIdFilter);
       if (dateRange.from) params.append('startDate', dateRange.from.toISOString());
       if (dateRange.to) params.append('endDate', dateRange.to.toISOString());
       params.append('export', 'true');
@@ -313,7 +313,7 @@ export default function AuditLogsPage() {
                     <SelectValue placeholder="全部操作" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部操作</SelectItem>
+                    <SelectItem value="all">全部操作</SelectItem>
                     <SelectItem value="CREATE">创建</SelectItem>
                     <SelectItem value="UPDATE">更新</SelectItem>
                     <SelectItem value="DELETE">删除</SelectItem>
@@ -334,7 +334,7 @@ export default function AuditLogsPage() {
                     <SelectValue placeholder="全部用户" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部用户</SelectItem>
+                    <SelectItem value="all">全部用户</SelectItem>
                     {users.map((user) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.name} ({user.email})

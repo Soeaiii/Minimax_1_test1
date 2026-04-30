@@ -35,7 +35,9 @@ export default function ProgramsPage() {
   const fetchCompetitions = async () => {
     try {
       setLoadingCompetitions(true);
-      const response = await fetch('/api/competitions');
+      const response = await fetch('/api/competitions', {
+        credentials: 'include', // 关键：包含凭据
+      });
       if (!response.ok) {
         throw new Error('获取比赛列表失败');
       }
@@ -246,4 +248,4 @@ export default function ProgramsPage() {
       )}
     </div>
   );
-} 
+}

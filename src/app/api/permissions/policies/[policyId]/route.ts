@@ -13,7 +13,7 @@ export async function PUT(
     return NextResponse.json({ error: '未授权访问' }, { status: 401 })
   }
 
-  if (session.user.role !== 'ADMIN') {
+  if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN') {
     return NextResponse.json({ error: '权限不足' }, { status: 403 })
   }
 

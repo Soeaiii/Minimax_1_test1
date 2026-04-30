@@ -128,10 +128,11 @@ export async function checkDataScope(
 ): Promise<boolean> {
   try {
     switch (userRole) {
+      case 'SUPER_ADMIN':
       case 'ADMIN':
         // 管理员可以访问所有数据
         return true;
-      
+
       case 'ORGANIZER':
         // 组织者只能访问自己创建的比赛及相关数据
         if (resource === 'competition') {
@@ -219,15 +220,15 @@ export async function checkDataScope(
 
 // 便捷的权限检查函数
 export const requireAdmin = (handler: (request: NextRequest, context: any) => Promise<NextResponse>) => {
-  return withPermissions({ allowedRoles: ['ADMIN'] })(handler);
+  return withPermissions({ allowedRoles: ['ADMIN', 'SUPER_ADMIN'] })(handler);
 };
 
 export const requireOrganizer = (handler: (request: NextRequest, context: any) => Promise<NextResponse>) => {
-  return withPermissions({ allowedRoles: ['ADMIN', 'ORGANIZER'] })(handler);
+  return withPermissions({ allowedRoles: ['ADMIN', 'SUPER_ADMIN', 'ORGANIZER'] })(handler);
 };
 
 export const requireJudge = (handler: (request: NextRequest, context: any) => Promise<NextResponse>) => {
-  return withPermissions({ allowedRoles: ['ADMIN', 'ORGANIZER', 'JUDGE'] })(handler);
+  return withPermissions({ allowedRoles: ['ADMIN', 'SUPER_ADMIN', 'ORGANIZER', 'JUDGE'] })(handler);
 };
 
 export const requireAuth = (handler: (request: NextRequest, context: any) => Promise<NextResponse>) => {
@@ -258,6 +259,7 @@ export async function getUserPermissions(userId: string) {
 export async function getUserDataScope(userId: string, userRole: UserRole) {
   try {
     switch (userRole) {
+      case 'SUPER_ADMIN':
       case 'ADMIN':
         // 管理员可以访问所有数据
         const allCompetitions = await prisma.competition.findMany({
@@ -272,7 +274,7 @@ export async function getUserDataScope(userId: string, userRole: UserRole) {
           participants: 'all',
           users: 'all',
         };
-      
+
       case 'ORGANIZER':
         // 组织者只能访问自己创建的比赛及相关数据
         const organizerCompetitions = await prisma.competition.findMany({

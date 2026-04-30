@@ -87,7 +87,7 @@ export async function GET(request: Request) {
     }
 
     // 只有管理员可以查看系统状态
-    if (session.user.role !== 'ADMIN') {
+    if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '权限不足' },
         { status: 403 }
@@ -401,7 +401,7 @@ export async function POST(request: Request) {
     }
 
     // 只有管理员可以触发健康检查
-    if (session.user.role !== 'ADMIN') {
+    if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '权限不足' },
         { status: 403 }

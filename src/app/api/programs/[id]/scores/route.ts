@@ -315,7 +315,7 @@ export async function DELETE(
     }
 
     // 权限检查：只有管理员或比赛组织者可以删除评分
-    const canDelete = session.user.role === 'ADMIN' || 
+    const canDelete = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN' ||
                      score.program.competition.organizerId === session.user.id;
 
     if (!canDelete) {

@@ -10,7 +10,7 @@ export async function GET() {
     return NextResponse.json({ error: '未授权访问' }, { status: 401 })
   }
 
-  if (!['ADMIN', 'ORGANIZER'].includes(session.user.role)) {
+  if (!['ADMIN', 'SUPER_ADMIN', 'ORGANIZER'].includes(session.user.role)) {
     return NextResponse.json({ error: '权限不足' }, { status: 403 })
   }
 

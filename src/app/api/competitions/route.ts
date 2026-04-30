@@ -48,7 +48,15 @@ export async function GET(request: Request) {
             email: true,
           },
         },
-        participantPrograms: true,
+        programs: {
+          include: {
+            participantPrograms: {
+              include: {
+                participant: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -72,7 +80,7 @@ export async function POST(request: Request) {
     const session = await getServerSession(authOptions);
     
     // 检查用户是否已登录且是管理员或组织者
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'ORGANIZER')) {
+    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ORGANIZER')) {
       return NextResponse.json(
         { error: '未授权操作，只有管理员或组织者可以创建比赛' },
         { status: 403 }
@@ -108,6 +116,7 @@ export async function POST(request: Request) {
                 name: criteria.name,
                 weight: criteria.weight,
                 maxScore: criteria.maxScore,
+                tenantId: session.user.tenantId,
               })),
             }
           : undefined,
@@ -126,10 +135,14 @@ export async function POST(request: Request) {
     });
     
     return NextResponse.json(competition, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating competition:', error);
     return NextResponse.json(
-      { error: '创建比赛失败' },
+      { 
+        error: '创建比赛失败',
+        details: error?.message || String(error),
+        code: error?.code
+      },
       { status: 500 }
     );
   }

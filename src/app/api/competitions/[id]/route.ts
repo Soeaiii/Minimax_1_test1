@@ -40,7 +40,7 @@ export async function GET(
               email: true,
             },
           },
-          participantPrograms: {
+          programs: {
             include: {
               participantPrograms: {
                 include: {
@@ -50,7 +50,7 @@ export async function GET(
                       name: true,
                       team: true,
                       bio: true,
-                    }
+                    },
                   },
                 },
               },
@@ -159,13 +159,13 @@ export async function PUT(
     const session = await getServerSession(authOptions);
     
     // 检查用户是否已登录且是管理员或组织者
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'ORGANIZER')) {
+    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ORGANIZER')) {
       return NextResponse.json(
         { error: '未授权操作' },
         { status: 403 }
       );
     }
-    
+
     const { id } = await params; // 修复：await params
     const body = await request.json();
     
@@ -188,7 +188,7 @@ export async function PUT(
     }
     
     // 检查是否是管理员或比赛创建者
-    if (session.user.role !== 'ADMIN' && currentCompetition.organizerId !== session.user.id) {
+    if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && currentCompetition.organizerId !== session.user.id) {
       return NextResponse.json(
         { error: '您没有权限更新此比赛' },
         { status: 403 }
@@ -322,15 +322,15 @@ export async function DELETE(
     const session = await getServerSession(authOptions);
     
     // 检查用户是否已登录且是管理员或组织者
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'ORGANIZER')) {
+    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ORGANIZER')) {
       return NextResponse.json(
         { error: '未授权操作' },
         { status: 403 }
       );
     }
-    
+
     const { id } = await params; // 修复：await params
-    
+
     // 获取当前比赛（验证租户）
     const competition = await prisma.competition.findUnique({
       where: {
@@ -338,16 +338,16 @@ export async function DELETE(
         tenantId: session.user.tenantId
       },
     });
-    
+
     if (!competition) {
       return NextResponse.json(
         { error: '比赛不存在' },
         { status: 404 }
       );
     }
-    
+
     // 检查是否是管理员或比赛创建者
-    if (session.user.role !== 'ADMIN' && competition.organizerId !== session.user.id) {
+    if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && competition.organizerId !== session.user.id) {
       return NextResponse.json(
         { error: '您没有权限归档此比赛' },
         { status: 403 }
