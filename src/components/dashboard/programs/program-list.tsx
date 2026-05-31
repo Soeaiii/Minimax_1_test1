@@ -127,7 +127,7 @@ const ProgramCard = memo(function ProgramCard({ program, canEdit }: { program: P
       )}
     </CardContent>
   </Card>
-})
+))}
 
 function ProgramList({ programs, competitionId, canEdit = false }: ProgramListProps) {
   const sortedPrograms = useMemo(

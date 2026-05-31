@@ -31,7 +31,6 @@ export const authOptions = {
           return null;
         }
 
-        // 检查租户状态（如果租户存在且有租户ID才检查）
         if (user.tenantId && user.tenant && !user.tenant.isActive) {
           return null;
         }
@@ -45,17 +44,13 @@ export const authOptions = {
           return null;
         }
 
-        // 更新最后登录时间
         await prisma.user.update({
           where: { id: user.id },
           data: { lastLogin: new Date() }
         });
 
-        // 获取角色权限
         const rolePermissions = ROLE_PERMISSIONS[user.role as keyof typeof ROLE_PERMISSIONS] || [];
         const rolePermissionStrings = rolePermissions.map(p => `${p.resource}:${p.action}`);
-        // user.permissions 已经是 Prisma JSON 字段解析后的对象，无需再 JSON.parse
-        // 过滤掉非字符串值，确保类型安全
         const userPermissions = Array.isArray(user.permissions)
           ? user.permissions.filter((p): p is string => typeof p === 'string')
           : [];
@@ -80,19 +75,22 @@ export const authOptions = {
       if (user) {
         token.role = user.role;
         token.id = user.id;
-        token.tenantId = user.tenantId;
+        token.homeTenantId = user.tenantId;
+        token.activeTenantId = user.tenantId;
         token.tenantName = user.tenantName;
         token.permissions = user.permissions;
         token.avatar = user.avatar;
         token.isActive = user.isActive;
       }
+      // activeTenantId 由 switch-tenant API 直接修改 token cookie，无需此处处理
       return token;
     },
     async session({ session, token }: { session: any; token: any }) {
       if (token) {
         session.user.role = token.role;
         session.user.id = token.id;
-        session.user.tenantId = token.tenantId;
+        session.user.homeTenantId = token.homeTenantId;
+        session.user.tenantId = token.activeTenantId;
         session.user.tenantName = token.tenantName;
         session.user.permissions = token.permissions;
         session.user.avatar = token.avatar;
@@ -103,7 +101,7 @@ export const authOptions = {
   },
   session: {
     strategy: "jwt" as const,
-    maxAge: 7 * 24 * 60 * 60, // 7天
+    maxAge: 7 * 24 * 60 * 60,
   },
   pages: {
     signIn: "/auth/login",

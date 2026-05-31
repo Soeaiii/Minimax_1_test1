@@ -55,3 +55,10 @@ next-env.d.ts
 *.pem
 *.key
 credentials.json
+
+# nested git repos
+.claude/worktrees/*/.git
+
+# env backups
+.env.backup-original
+.env.mongodb-backup

@@ -1,0 +1,295 @@
+# AGENTS.md
+
+This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+
+# Competition Management System (比赛管理系统)
+
+A Next.js-based competition management platform for managing contests, participants, programs, and judge scoring with real-time display updates.
+
+## Tech Stack
+
+- **Framework**: Next.js 15.3.2 with App Router
+- **Database**: MongoDB with Prisma ORM 6.8.2
+- **Authentication**: next-auth 4.24.11 (JWT session, credentials provider)
+- **UI**: Tailwind CSS, shadcn/ui components, Radix UI
+- **Forms**: react-hook-form with zod validation
+- **Excel**: xlsx library for import/export
+- **Password**: bcryptjs for hashing
+
+## Project Structure
+
+```
+src/
+├── app/                    # Next.js App Router pages
+│   ├── api/               # API routes
+│   │   ├── auth/          # NextAuth endpoints
+│   │   ├── competitions/  # Competition CRUD
+│   │   ├── display/        # Public display with SSE
+│   │   ├── judge/         # Judge-specific endpoints
+│   │   ├── participants/  # Participant management
+│   │   ├── programs/      # Program management
+│   │   └── files/         # File upload/download
+│   ├── auth/              # Login/register pages
+│   ├── dashboard/         # Admin/Organizer dashboard
+│   │   ├── competitions/  # Competition management
+│   │   ├── participants/  # Participant management
+│   │   ├── programs/      # Program management
+│   │   ├── judges/        # Judge management
+│   │   ├── display/       # Display management
+│   │   ├── audit-logs/    # Audit log viewer
+│   │   ├── files/         # File management
+│   │   └── permissions/   # RBAC management
+│   ├── judge/             # Judge dashboard & scoring
+│   │   ├── competitions/[id]/scoring/
+│   │   └── profile/
+│   └── display/[competitionId]/  # Public real-time display
+├── components/
+│   ├── dashboard/         # Dashboard-specific components
+│   │   ├── competitions/  # Competition cards, forms, lists
+│   │   ├── programs/      # Program cards, scoring forms
+│   │   └── files/        # File upload/grid
+│   └── ui/               # shadcn/ui components
+├── hooks/                # Custom React hooks
+│   └── useScoreStream.ts # SSE for real-time scores
+└── lib/                  # Core utilities
+    ├── auth.ts           # NextAuth configuration
+    ├── permissions.ts    # RBAC permission system
+    ├── prisma.ts        # Prisma client singleton
+    ├── types.ts          # TypeScript types
+    └── utils.ts          # Utility functions
+```
+
+## Database Schema (Prisma)
+
+### Core Models
+
+- **Tenant**: Multi-tenant support with isActive flag
+- **User**: Authentication with role (ADMIN, ORGANIZER, JUDGE, USER), tenant association
+- **Competition**: Events with status (PENDING, ACTIVE, FINISHED, ARCHIVED)
+- **ScoringCriteria**: Judge scoring criteria per competition
+- **Participant**: Competition participants
+- **Program**: Performances/programs linked to participants
+- **Score**: Judge scores with criterion breakdown
+- **Ranking**: Computed rankings
+- **File**: Uploaded files storage
+- **AuditLog**: Action logging
+- **JudgeAssignment**: Judge-to-competition assignments
+- **DisplaySettings**: Display preferences per competition
+
+### Enums
+
+```prisma
+UserRole: ADMIN, ORGANIZER, JUDGE, USER
+CompetitionStatus: PENDING, ACTIVE, FINISHED, ARCHIVED
+ProgramStatus: WAITING, PERFORMING, COMPLETED
+DisplayTheme: MODERN, CLASSIC, MINIMAL, ELEGANT
+```
+
+## Authentication System
+
+### NextAuth Configuration (src/lib/auth.ts)
+
+- **Provider**: Credentials (email/password)
+- **Session Strategy**: JWT (30-day expiry)
+- **Callbacks**: Custom jwt/session callbacks inject role, tenantId, permissions
+- **Password**: bcrypt comparison
+
+### RBAC Permission System (src/lib/permissions.ts)
+
+Permission format: `resource:action` (e.g., `programs:create`, `competitions:read`)
+
+Role permissions:
+- **ADMIN**: Full access
+- **ORGANIZER**: Manage competitions, programs, participants
+- **JUDGE**: Score programs in assigned competitions
+- **USER**: Limited read access
+
+## API Routes
+
+### Authentication
+- `POST /api/auth/[...nextauth]` - NextAuth handler
+
+### Competitions
+- `GET/POST /api/competitions` - List/Create competitions
+- `GET/PUT/DELETE /api/competitions/[id]` - CRUD operations
+- `GET /api/competitions/[id]/stats` - Competition statistics
+- `GET /api/competitions/[id]/judges-and-criteria` - Judges and scoring criteria
+
+### Rankings
+- `GET /api/rankings` - List rankings (session auth + tenant isolation)
+- `POST /api/rankings` - Create/refresh rankings
+- `GET /api/rankings/[id]` - Get ranking detail
+- `PUT /api/rankings/[id]` - Manual ranking adjustment
+- `POST /api/rankings/[id]` - Refresh competition rankings
+
+### Programs
+- `GET/POST /api/programs` - List/Create programs
+- `GET/PUT/DELETE /api/programs/[id]` - CRUD operations
+- `GET /api/programs/[id]/scores` - Program scores
+- `POST /api/programs/batch-import` - Excel batch import
+
+### Display (Real-time)
+- `GET /api/display/[competitionId]/data` - Display data with auto-created settings (token-based tenant isolation)
+- `GET /api/display/[competitionId]/stream` - SSE endpoint for real-time updates
+
+### Judge
+- `GET /api/judge/competitions` - Judge's assigned competitions
+- `POST /api/judge/programs/[id]/scores` - Submit scores
+
+### Admin - Tenant Management
+- `GET /api/admin/tenants` - List all tenants (pagination, search, filter)
+- `POST /api/admin/tenants` - Create new tenant
+- `GET /api/admin/tenants/[id]` - Get tenant detail with user/competition counts
+- `PUT /api/admin/tenants/[id]` - Update tenant (name, domain, settings, isActive)
+- `DELETE /api/admin/tenants/[id]` - Soft delete tenant (sets isActive=false)
+
+## Key Features
+
+### Real-time Display (SSE)
+- Public display page at `/display/[competitionId]`
+- Server-Sent Events for live score updates
+- Theme support (MODERN, CLASSIC, MINIMAL, ELEGANT)
+- Judge cards with individual scores
+- Average score computation
+
+### Judge Scoring Interface
+- Form-based scoring with react-hook-form + zod
+- Per-criterion scores with optional comments
+- Progress tracking and program navigation
+- LocalStorage persistence for scoring position
+
+### Excel Import/Export
+- Batch import participants and programs via xlsx
+- Export competition/program data
+
+## Configuration
+
+### next.config.ts
+- Server actions body limit: 50mb
+- Image optimization: webp, avif
+- Allowed dev origins for local network access
+
+### Environment Variables
+```
+NEXTAUTH_SECRET - Auth secret
+DATABASE_URL - MongoDB connection string
+```
+
+## Navigation
+
+Dashboard sidebar items (role-based visibility):
+- /dashboard - Dashboard (仪表盘)
+- /dashboard/competitions - Competition Management
+- /dashboard/programs - Program Management
+- /dashboard/participants - Participant Management
+- /dashboard/judges - Judge Management
+- /dashboard/display - Display Management
+- /dashboard/audit-logs - Audit Logs
+- /dashboard/files - File Management
+- /dashboard/permissions - Admin only (roles, users, data-access, settings)
+
+## Development Commands
+
+### Package Manager
+This project uses `pnpm` (version specified in `packageManager` field). Use `pnpm` for all package operations.
+
+### Common Development Tasks
+```bash
+# Install dependencies
+pnpm install
+
+# Start development server
+pnpm dev
+
+# Build for production
+pnpm build
+
+# Start production server
+pnpm start
+
+# Lint code
+pnpm lint
+
+# Database operations
+pnpm dbpush          # Push Prisma schema changes to database
+pnpm seed            # Run seed data (creates default tenant, admin user, etc.)
+
+# Generate Prisma Client
+npx prisma generate
+
+# Open Prisma Studio (database GUI)
+npx prisma studio
+
+# Run custom scripts
+pnpm generate-templates  # Generate display templates (scripts/generate-templates.js)
+```
+
+### Environment Setup
+1. Copy `.env.with-auth` to `.env` (or create `.env` with required variables)
+2. Required environment variables:
+   - `DATABASE_URL`: PostgreSQL connection string (note: schema uses PostgreSQL but example uses MongoDB; adjust accordingly)
+   - `NEXTAUTH_SECRET`: Secret for NextAuth.js
+   - `NEXTAUTH_URL`: Base URL for authentication (e.g., `http://localhost:3000`)
+
+### Database
+- **Schema**: Defined in `prisma/schema.prisma`
+- **Provider**: PostgreSQL (as declared in schema)
+- **Multi-tenancy**: All data is tenant‑isolated via `tenantId` foreign keys
+- **Seed data**: Creates a default tenant, admin user (`admin@example.com` / `system1123`), and sample competitions/programs
+
+### Testing
+No automated test suite is currently configured. Focus on manual testing of:
+- Authentication and role‑based access
+- Real‑time display updates (SSE)
+- Excel import/export functionality
+- Multi‑tenant data isolation
+
+## Architecture Notes
+
+### Multi‑Tenancy
+- Every user, competition, program, score, etc. belongs to a `Tenant`
+- All API routes enforce tenant isolation via `tenantId` from the user's session
+- The `Tenant` model has `isActive` flag for soft deletion
+- Tenant‑specific settings stored as JSON in `Tenant.settings`
+
+### Real‑Time Display (SSE)
+- Public display page: `/display/[competitionId]`
+- SSE endpoint: `/api/display/[competitionId]/stream`
+- Display settings per competition: theme, colors, layout
+- Client‑side hook: `useScoreStream` (src/hooks/useScoreStream.ts)
+
+### Permission System
+- RBAC with granular permissions (`resource:action`)
+- User roles: ADMIN, ORGANIZER, JUDGE, USER
+- Permissions stored as JSON array in `User.permissions`
+- Middleware: `requirePermission` in `src/lib/permissions.ts`
+
+### File Uploads
+- Files stored in database (`File` model) with metadata
+- API routes: `/api/files` (upload) and `/api/files/[id]` (download)
+- File type and size validation
+
+### Excel Import/Export
+- Uses `xlsx` library
+- Batch import of participants and programs via `/api/programs/batch-import`
+- Export competition data as Excel files
+
+### API Response Format
+All API responses follow a consistent envelope:
+```typescript
+{
+  success: boolean,
+  data?: T,
+  error?: string,
+  meta?: { total: number, page: number, limit: number }
+}
+```
+
+## Codebase Conventions
+
+- **API Routes**: Use Next.js Route Handlers (App Router) with session‑based authentication
+- **Components**: Business components in `src/components/dashboard/`, reusable UI components in `src/components/ui/`
+- **Forms**: `react-hook-form` with `zod` validation schemas
+- **Styling**: Tailwind CSS with `shadcn/ui` component library
+- **State Management**: React state and context (no external state library)
+- **Error Handling**: Explicit error handling in API routes; user‑friendly messages in UI

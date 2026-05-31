@@ -41,11 +41,14 @@ interface Tenant {
   name: string;
   domain: string | null;
   isActive: boolean;
+  plan: string;
   createdAt: string;
   updatedAt: string;
   settings: Record<string, unknown>;
   userCount: number;
   competitionCount: number;
+  maxUsers: number;
+  maxCompetitions: number;
 }
 
 interface PaginationInfo {
@@ -276,6 +279,7 @@ export default function TenantsPage() {
               <TableRow>
                 <TableHead>名称</TableHead>
                 <TableHead>域名</TableHead>
+                <TableHead>套餐</TableHead>
                 <TableHead>用户数</TableHead>
                 <TableHead>比赛数</TableHead>
                 <TableHead>状态</TableHead>
@@ -292,8 +296,19 @@ export default function TenantsPage() {
                 >
                   <TableCell className="font-medium">{tenant.name}</TableCell>
                   <TableCell>{tenant.domain || '-'}</TableCell>
-                  <TableCell>{tenant.userCount}</TableCell>
-                  <TableCell>{tenant.competitionCount}</TableCell>
+                  <TableCell>
+                    <Badge variant={
+                      tenant.plan === 'ENTERPRISE' ? 'default' :
+                      tenant.plan === 'PRO' ? 'default' :
+                      tenant.plan === 'BASIC' ? 'secondary' : 'outline'
+                    }>
+                      {tenant.plan === 'ENTERPRISE' ? '企业' :
+                       tenant.plan === 'PRO' ? '专业' :
+                       tenant.plan === 'BASIC' ? '基础' : '免费'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{tenant.userCount}/{tenant.maxUsers}</TableCell>
+                  <TableCell>{tenant.competitionCount}/{tenant.maxCompetitions}</TableCell>
                   <TableCell>{getStatusBadge(tenant.isActive)}</TableCell>
                   <TableCell>
                     {format(new Date(tenant.createdAt), 'yyyy-MM-dd HH:mm')}

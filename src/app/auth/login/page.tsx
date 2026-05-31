@@ -63,11 +63,6 @@ function LoginForm() {
     },
   });
 
-  // 快速填充管理员账号（仅开发环境）
-  const fillAdminCredentials = () => {
-    form.setValue('email', 'admin@example.com');
-    form.setValue('password', '123456');
-  };
 
   async function onSubmit(data: LoginValues) {
     setIsLoading(true);
@@ -149,16 +144,7 @@ function LoginForm() {
               {isLoading ? '登录中...' : '登录'}
             </Button>
             
-            {process.env.NODE_ENV !== 'production' && (
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="w-full mt-2" 
-                onClick={fillAdminCredentials}
-              >
-                填充管理员账号
-              </Button>
-            )}
+
           </form>
         </Form>
       </CardContent>

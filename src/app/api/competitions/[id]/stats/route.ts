@@ -269,7 +269,9 @@ function calculateTeamStatistics(programs: any[]) {
   const teamMap = new Map();
   
   programs.forEach(program => {
-    program.participants.forEach((participant: any) => {
+    program.participantPrograms?.forEach((pp: any) => {
+      const participant = pp.participant;
+      if (!participant) return;
       const teamName = participant.team || '个人选手';
       if (!teamMap.has(teamName)) {
         teamMap.set(teamName, {
@@ -360,7 +362,9 @@ function generateTeamPerformanceData(programs: any[], rankings: any[]) {
   const teamPerformance = new Map();
   
   rankings.forEach(ranking => {
-    ranking.program.participants.forEach((participant: any) => {
+    ranking.program.participantPrograms?.forEach((pp: any) => {
+      const participant = pp.participant;
+      if (!participant) return;
       const teamName = participant.team || '个人选手';
       if (!teamPerformance.has(teamName)) {
         teamPerformance.set(teamName, {

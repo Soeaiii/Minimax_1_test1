@@ -14,13 +14,23 @@ datasource db {
 }
 
 model Tenant {
-  id        String   @id @default(uuid())
-  name      String
-  domain    String?  @unique
-  settings  Json?    @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  isActive  Boolean  @default(true)
+  id             String    @id @default(uuid())
+  name           String
+  domain         String?   @unique
+  settings       Json?     @default("{}")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  isActive       Boolean   @default(true)
+
+  // ── 企业级字段 ──
+  createdBy      String?                          // 创建者 userId
+  plan           TenantPlan    @default(FREE)     // 套餐
+  maxUsers       Int           @default(100)      // 用户上限
+  maxCompetitions Int          @default(10)       // 比赛上限
+  logoUrl        String?                          // 品牌 Logo
+  primaryColor   String?       @default("#3b82f6")// 品牌主色
+  contactEmail   String?                          // 管理员联系邮箱
+  expiresAt      DateTime?                        // 到期时间（null = 永久）
 
   // 关系
   users            User[]
@@ -36,6 +46,7 @@ model Tenant {
   displaySettings  DisplaySettings[]
 
   @@index([isActive])
+  @@index([plan])
 }
 
 model User {
@@ -75,6 +86,13 @@ enum UserRole {
   ORGANIZER
   JUDGE
   USER
+}
+
+enum TenantPlan {
+  FREE
+  BASIC
+  PRO
+  ENTERPRISE
 }
 
 model Competition {

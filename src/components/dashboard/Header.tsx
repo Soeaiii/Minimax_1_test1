@@ -1,6 +1,7 @@
 'use client';
 
 import { UserNav } from './UserNav';
+import { TenantSwitcher } from './TenantSwitcher';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
 import { useState } from 'react';
@@ -20,6 +21,7 @@ export function Header() {
         <span className="sr-only">Toggle sidebar</span>
       </Button>
       <div className="flex-1" />
+      <TenantSwitcher />
       <UserNav />
     </header>
   );

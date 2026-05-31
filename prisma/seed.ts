@@ -32,10 +32,13 @@ async function main() {
       domain: 'default.example.com',
       settings: {
         allowRegistration: true,
-        maxUsers: 1000,
         features: ['competitions', 'scoring', 'reports', 'display'],
       },
       isActive: true,
+      plan: 'PRO',
+      maxUsers: 500,
+      maxCompetitions: 50,
+      contactEmail: 'admin@example.com',
     },
   })
 
@@ -49,10 +52,12 @@ async function main() {
       settings: {
         isSystem: true,
         allowRegistration: false,
-        maxUsers: 100,
         features: ['system'],
       },
       isActive: true,
+      plan: 'ENTERPRISE',
+      maxUsers: 100,
+      maxCompetitions: 999,
     },
   })
   console.log('✓ 已创建系统租户:', systemTenant.name)

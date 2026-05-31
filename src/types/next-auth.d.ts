@@ -6,7 +6,8 @@ declare module "next-auth" {
     user: {
       id: string
       role: string
-      tenantId: string
+      tenantId: string         // 当前查看的租户（可切换）
+      homeTenantId: string     // 原始租户（永不改变）
       tenantName: string
       permissions: string[]
       avatar?: string
@@ -29,7 +30,8 @@ declare module "next-auth/jwt" {
   interface JWT {
     id: string
     role: string
-    tenantId: string
+    homeTenantId: string       // 原始租户
+    activeTenantId: string     // 当前查看的租户
     tenantName: string
     permissions: string[]
     avatar?: string
