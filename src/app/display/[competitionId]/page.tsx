@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -100,7 +100,9 @@ interface DisplayData {
 
 export default function DisplayPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const competitionId = params.competitionId as string;
+  const token = searchParams.get('token') || '';
 
   const [displayData, setDisplayData] = useState<DisplayData | null>(null);
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string>('');
@@ -118,6 +120,7 @@ export default function DisplayPage() {
     reconnectCount,
   } = useScoreStream(competitionId, undefined, {
     enabled: true,
+    token,
     onError: (error) => {
       console.error('实时评分连接错误:', error);
       // 不在控制台显示错误，避免干扰用户
@@ -167,7 +170,7 @@ export default function DisplayPage() {
       
       console.log('正在获取比赛ID:', competitionId, '的显示数据...');
       
-      const response = await fetch(`/api/display/${competitionId}/data`);
+      const response = await fetch(`/api/display/${competitionId}/data${token ? '?token=' + token : ''}`);
       console.log('API响应状态:', response.status);
       
       if (!response.ok) {

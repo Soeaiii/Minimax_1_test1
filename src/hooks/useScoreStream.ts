@@ -37,8 +37,9 @@ interface ScoreStreamData {
 
 interface UseScoreStreamOptions {
   enabled?: boolean;
-  onError?: (error: Error) => void;
+  onError?: (error: string) => void;
   onReconnect?: () => void;
+  token?: string;
 }
 
 export function useScoreStream(
@@ -46,7 +47,7 @@ export function useScoreStream(
   selectedJudgeIds?: string[],
   options: UseScoreStreamOptions = {}
 ) {
-  const { enabled = true, onError, onReconnect } = options;
+  const { enabled = true, onError, onReconnect, token } = options;
   
   const [data, setData] = useState<ScoreStreamData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -74,7 +75,7 @@ export function useScoreStream(
         params.set('judges', selectedJudgeIds.join(','));
       }
       
-      const url = `/api/display/${competitionId}/stream${params.toString() ? `?${params.toString()}` : ''}`;
+      const url = `/api/display/${competitionId}/stream${token ? `?token=${token}` : ''}${params.toString() ? (token ? '&' : '?') + params.toString() : ''}`;
       const eventSource = new EventSource(url);
       eventSourceRef.current = eventSource;
 
