@@ -9,11 +9,14 @@ async function clearData() {
   await prisma.participantProgram.deleteMany()
   await prisma.displaySettings.deleteMany()
   await prisma.judgeAssignment.deleteMany()
+  await prisma.notification.deleteMany()
   await prisma.auditLog.deleteMany()
   await prisma.ranking.deleteMany()
   await prisma.score.deleteMany()
   await prisma.scoringCriteria.deleteMany()
   await prisma.program.deleteMany()
+  await prisma.competitionRound.deleteMany()
+  await prisma.competitionGroup.deleteMany()
   await prisma.participant.deleteMany()
   await prisma.competition.deleteMany()
   await prisma.file.deleteMany()
@@ -201,9 +204,30 @@ async function main() {
         contact: '13800138005',
       },
     }),
+    // === 更多选手（丰富演示数据） ===
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '刘德华', bio: '流行音乐歌手，代表作《忘情水》', team: '天皇娱乐', contact: '13800138006' } }),
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '周杰伦', bio: '创作型歌手，中国风代表', team: '杰威尔音乐', contact: '13800138007' } }),
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '林俊杰', bio: '实力唱将，行走的CD', team: 'JFJ音乐', contact: '13800138008' } }),
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '邓紫棋', bio: '铁肺小天后，创作才女', team: '蜂鸟音乐', contact: '13800138009' } }),
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '陈奕迅', bio: '粤语歌神，深情演绎', team: '环球音乐', contact: '13800138010' } }),
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '杨丽萍', bio: '孔雀舞大师，国家级艺术家', team: '云南艺术团', contact: '13800138011' } }),
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '郎朗', bio: '世界级钢琴大师', team: '环球古典', contact: '13800138012' } }),
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '李云迪', bio: '肖邦国际钢琴比赛冠军', team: '古典音乐协会', contact: '13800138013' } }),
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '谭元元', bio: '旧金山芭蕾舞团首席', team: '国际芭蕾舞团', contact: '13800138014' } }),
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '黄豆豆', bio: '中国古典舞代表人物', team: '上海歌舞团', contact: '13800138015' } }),
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '韩红', bio: '实力派歌手，公益践行者', team: '韩红爱心', contact: '13800138016' } }),
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '那英', bio: '华语乐坛天后', team: '金牌大风', contact: '13800138017' } }),
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '王菲', bio: '空灵嗓音，天后级歌手', team: '天籁之声', contact: '13800138018' } }),
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '蔡国强', bio: '火药爆破艺术家', team: '当代艺术中心', contact: '13800138019' } }),
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '徐冰', bio: '天书作品享誉国际', team: '中央美术学院', contact: '13800138020' } }),
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '吴冠中', bio: '水墨画与油画的结合', team: '中国美术馆', contact: '13800138021' } }),
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '赵无极', bio: '抽象艺术大师', team: '巴黎画派', contact: '13800138022' } }),
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '金星', bio: '现代舞先锋艺术家', team: '金星舞蹈团', contact: '13800138023' } }),
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '谭盾', bio: '奥斯卡最佳原创音乐奖得主', team: '上海音乐学院', contact: '13800138024' } }),
+    prisma.participant.create({ data: { tenantId: defaultTenant.id, name: '张艺谋', bio: '著名导演，视觉盛宴创造者', team: '北京电影学院', contact: '13800138025' } }),
   ])
 
-  console.log('✓ 已创建参与者')
+  console.log('✓ 已创建参与者（共25人）')
 
   const competition = await prisma.competition.create({
     data: {
@@ -482,9 +506,15 @@ async function main() {
   })
   // 创建组别
   const group1 = await prisma.competitionGroup.create({
-    data: { tenantId: defaultTenant.id, competitionId: competition.id, name: '青少年组', description: '18岁以下' },
+    data: { tenantId: defaultTenant.id, competitionId: competition.id, name: '青少年组', description: '18岁以下选手' },
   })
-  console.log('✓ 已创建轮次和组别')
+  const group2 = await prisma.competitionGroup.create({
+    data: { tenantId: defaultTenant.id, competitionId: competition.id, name: '成人组', description: '18岁及以上选手' },
+  })
+  const group3 = await prisma.competitionGroup.create({
+    data: { tenantId: defaultTenant.id, competitionId: competition.id, name: '专业组', description: '专业艺术团体/院校选手' },
+  })
+  console.log('✓ 已创建轮次和组别（3个组别）')
 
   // 开启报名
   const registrationToken = Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('')
@@ -497,11 +527,19 @@ async function main() {
   // 创建示例通知
   await prisma.notification.createMany({
     data: [
-      { tenantId: defaultTenant.id, userId: admin.id, type: 'system', title: '系统初始化完成', content: '示例数据已创建完毕' },
-      { tenantId: defaultTenant.id, userId: organizer.id, type: 'promotion', title: '初赛结果已出', content: '5个节目晋级复赛' },
+      { tenantId: defaultTenant.id, userId: admin.id, type: 'system', title: '🎉 系统初始化完成', content: '所有示例数据已创建，可以开始使用系统了' },
+      { tenantId: defaultTenant.id, userId: organizer.id, type: 'promotion', title: '🏆 初赛结果已出', content: '5个节目成功晋级复赛，请查看晋级名单' },
+      { tenantId: defaultTenant.id, userId: judge1.id, type: 'score', title: '📝 评分提醒', content: '您有3个节目尚未完成评分，请及时处理' },
+      { tenantId: defaultTenant.id, userId: judge2.id, type: 'score', title: '✅ 评分完成', content: '您已成功提交《春江花月夜》的评分' },
+      { tenantId: defaultTenant.id, userId: admin.id, type: 'certificate', title: '🎓 证书已生成', content: '复赛晋级选手的荣誉证书已准备就绪' },
+      { tenantId: defaultTenant.id, userId: organizer.id, type: 'system', title: '📋 比赛即将开始', content: '请确认所有选手和评委已就位' },
+      { tenantId: defaultTenant.id, userId: admin.id, type: 'promotion', title: '📢 公开报名已开启', content: '选手可通过分享链接自助报名参赛' },
+      { tenantId: defaultTenant.id, userId: judge1.id, type: 'score', title: '⭐ 新评分规则', content: '比赛启用了"去掉最高分和最低分"规则' },
+      { tenantId: defaultTenant.id, userId: judge3.id, type: 'score', title: '📊 评分统计', content: '您本周共完成15个节目的评分工作' },
+      { tenantId: defaultTenant.id, userId: organizer.id, type: 'system', title: '📅 赛程提醒', content: '复赛将于明天上午9:00开始' },
     ],
   })
-  console.log('✓ 已创建示例通知')
+  console.log('✓ 已创建示例通知（10条）')
 
   await Promise.all([
     prisma.auditLog.create({
@@ -531,22 +569,44 @@ async function main() {
         details: { programName: programs[0].name },
       },
     }),
+    prisma.auditLog.create({
+      data: { tenantId: defaultTenant.id, userId: judge2.id, action: '提交评分', targetId: programs[1].id, details: { programName: programs[1].name } },
+    }),
+    prisma.auditLog.create({
+      data: { tenantId: defaultTenant.id, userId: judge3.id, action: '提交评分', targetId: programs[2].id, details: { programName: programs[2].name } },
+    }),
+    prisma.auditLog.create({
+      data: { tenantId: defaultTenant.id, userId: admin.id, action: 'UPDATE_DISPLAY_SETTINGS', targetId: competition.id, details: { theme: 'MODERN' } },
+    }),
+    prisma.auditLog.create({
+      data: { tenantId: defaultTenant.id, userId: organizer.id, action: 'PROMOTE_ROUND', targetId: competition.id, details: { fromRound: '初赛', toRound: '复赛', promotedCount: 5 } },
+    }),
+    prisma.auditLog.create({
+      data: { tenantId: defaultTenant.id, userId: admin.id, action: 'UPDATE_COMPETITION', targetId: competition.id, details: { newStatus: 'ACTIVE' } },
+    }),
+    prisma.auditLog.create({
+      data: { tenantId: defaultTenant.id, userId: admin.id, action: 'CLONE_COMPETITION', targetId: competition.id, details: { cloneName: '秋季艺术节' } },
+    }),
   ])
 
-  console.log('✓ 已创建审计日志')
+  console.log('✓ 已创建审计日志（10条）')
   console.log('示例数据创建完成！')
   console.log(`
 创建的数据包括：
 - 5 个用户（1个管理员，1个组织者，3个评委）
-- 5 个参与者
-- 1 个比赛
+- 25 个参与者（多个团队）
+- 1 个比赛（含报名Token、评分规则）
 - 4 个评分标准
 - 5 个节目（3个已完成，1个进行中，1个等待中）
 - 36 个评分记录（3个节目 × 3个评委 × 4个标准）
 - 3 个排名记录
-- 3 个审计日志
+- 10 条审计日志
 - 3 个文件记录
-- 1 个大屏配置
+- 1 个大屏配置（含公开Token）
+- 3 个轮次（初赛/复赛/决赛）
+- 3 个组别（青少年组/成人组/专业组）
+- 10 条通知消息
+- 1 个公开报名链接
 
 登录信息：
 - 管理员: admin@example.com / 123456
