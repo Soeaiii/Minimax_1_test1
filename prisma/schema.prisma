@@ -106,6 +106,7 @@ model Competition {
   registrationToken      String? // 报名链接Token（公开报名用）
   registrationEnabled    Boolean @default(false) // 是否开启公开报名
   registrationFields     Json?   @default("[\"name\",\"team\",\"contact\"]") // 报名表显示的字段
+  scoringConfig          Json?   @default("{\"dropHighest\":false,\"dropLowest\":false,\"dropCount\":1}") // 评分规则配置
 
   // 赛制
   rounds CompetitionRound[]

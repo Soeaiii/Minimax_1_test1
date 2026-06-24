@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
+import { applyScoringRules, type ScoringConfig } from '@/lib/scoring';
 
 interface JudgeScore {
   judge: {
@@ -33,7 +34,7 @@ export async function GET(
     // 并行获取比赛信息
     const competition = await prisma.competition.findUnique({
       where: { id: params.competitionId },
-      select: { id: true, name: true, description: true, status: true, tenantId: true },
+      select: { id: true, name: true, description: true, status: true, tenantId: true, scoringConfig: true },
     });
 
     if (!competition) {
@@ -136,9 +137,11 @@ export async function GET(
         judgeData.scores.push({ criteriaId: score.scoringCriteriaId, criteriaName: score.scoringCriteria.name, value: score.value, weight: score.scoringCriteria.weight, maxScore: score.scoringCriteria.maxScore });
       });
 
-      // 计算每个裁判的平均分
+      // 计算每个裁判的平均分（应用去极值规则）
+      const scoringConfig = competition.scoringConfig as ScoringConfig | null;
       judgeScores = Array.from(judgeScoreMap.values()).map(judgeData => {
-        const totalScore = judgeData.scores.length > 0 ? judgeData.scores.reduce((sum: number, score: { value: number }) => sum + score.value, 0) / judgeData.scores.length : 0;
+        const scoreValues = judgeData.scores.map((s: { value: number }) => s.value);
+        const totalScore = applyScoringRules(scoreValues, scoringConfig);
         return { judge: judgeData.judge, totalScore: Math.round(totalScore * 100) / 100, scores: judgeData.scores };
       });
 

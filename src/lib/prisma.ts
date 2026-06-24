@@ -66,8 +66,10 @@ function mergeTenantWhere(
   if ('tenantId' in existingWhere) {
     return existingWhere;
   }
-  // Wrap existing where in AND to avoid key conflicts
-  return { AND: [existingWhere, { tenantId }] };
+  // Simply add tenantId to the existing where — this is safe because
+  // the caller won't have a tenantId field (checked above), and direct merge
+  // preserves unique-constraint recognition for Prisma queries.
+  return { ...existingWhere, tenantId };
 }
 
 // ── Build extended client ──

@@ -5,10 +5,11 @@ import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ChevronLeft, Edit, Archive, Monitor, Trash2, Settings, ExternalLink } from "lucide-react";
+import { ChevronLeft, Edit, Archive, Monitor, Trash2, Settings, ExternalLink, Copy } from "lucide-react";
 import { CompetitionDetail } from "@/components/dashboard/competitions/CompetitionDetail";
 import { CompetitionTabs } from "@/components/dashboard/competitions/CompetitionTabs";
 import { RegistrationManager } from "@/components/dashboard/competitions/RegistrationManager";
+import { ScoringRulesManager } from "@/components/dashboard/competitions/ScoringRulesManager";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -171,6 +172,24 @@ export default function CompetitionDetailPage() {
     }
   };
 
+  // 克隆比赛
+  const [cloning, setCloning] = useState(false);
+  const handleClone = async () => {
+    if (!competition) return;
+    setCloning(true);
+    try {
+      const res = await fetch(`/api/competitions/${id}/clone`, { method: 'POST' });
+      if (!res.ok) throw new Error('克隆失败');
+      const data = await res.json();
+      alert('比赛已克隆为：' + data.data.name);
+      router.refresh();
+    } catch (e: any) {
+      alert(e.message || '克隆失败');
+    } finally {
+      setCloning(false);
+    }
+  };
+
   // 检查用户权限
   const hasPermission = (competition: Competition) => {
     if (!session) return false;
@@ -309,6 +328,10 @@ export default function CompetitionDetailPage() {
               大屏幕管理
             </Link>
           </Button>
+          <Button variant="outline" size="sm" onClick={handleClone} disabled={cloning}>
+            <Copy className="h-4 w-4 mr-2" />
+            {cloning ? '克隆中...' : '克隆比赛'}
+          </Button>
           
           {canModify(competition) && (
             <>
@@ -377,6 +400,8 @@ export default function CompetitionDetailPage() {
       
       {/* 使用客户端组件处理所有Tab内容 */}
       <RegistrationManager competitionId={id} />
+
+      <ScoringRulesManager competitionId={id} initialConfig={(competition as any).scoringConfig} />
 
       <CompetitionTabs competition={competition} competitionId={id} />
     </div>

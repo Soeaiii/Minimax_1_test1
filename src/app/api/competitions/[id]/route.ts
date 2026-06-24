@@ -176,21 +176,23 @@ export const PUT = withTenantContext(async (
     
     try {
       
-      // 1. 更新比赛基本信息
+      // 1. 更新比赛基本信息（只更新提供的字段）
+      const updateData: any = {};
+      if (body.name !== undefined) updateData.name = body.name;
+      if (body.description !== undefined) updateData.description = body.description;
+      if (body.startTime !== undefined) updateData.startTime = new Date(body.startTime);
+      if (body.endTime !== undefined) updateData.endTime = new Date(body.endTime);
+      if (body.status !== undefined) updateData.status = body.status;
+      if (body.rankingUpdateMode !== undefined) updateData.rankingUpdateMode = body.rankingUpdateMode;
+      if (body.organizerId !== undefined) updateData.organizerId = body.organizerId;
+      if (body.registrationEnabled !== undefined) updateData.registrationEnabled = body.registrationEnabled;
+      if (body.registrationToken !== undefined) updateData.registrationToken = body.registrationToken;
+      if (body.registrationFields !== undefined) updateData.registrationFields = body.registrationFields;
+      if (body.scoringConfig !== undefined) updateData.scoringConfig = body.scoringConfig;
+
       const updated = await prisma.competition.update({
         where: { id },
-        data: {
-          name: body.name,
-          description: body.description,
-          startTime: new Date(body.startTime),
-          endTime: new Date(body.endTime),
-          status: body.status,
-          rankingUpdateMode: body.rankingUpdateMode,
-          organizerId: body.organizerId || undefined,
-          registrationEnabled: body.registrationEnabled ?? undefined,
-          registrationToken: body.registrationToken ?? undefined,
-          registrationFields: body.registrationFields ?? undefined,
-        },
+        data: updateData,
       });
       
       // 2. 如果提供了评分标准，更新评分标准
