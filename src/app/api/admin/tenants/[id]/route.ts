@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getAuthSession, auditLog, checkQuota, PLAN_QUOTAS } from '@/lib/tenant-guard';
+import { getAuthSession, auditLog } from '@/lib/tenant-guard';
 
 // 获取单个租户详情
 export async function GET(
@@ -40,20 +40,12 @@ export async function GET(
     return NextResponse.json({ error: '租户不存在' }, { status: 404 });
   }
 
-  // 计算配额使用率
-  const quotaUsage = {
-    users: { used: tenant._count.users, max: tenant.maxUsers, percent: Math.round((tenant._count.users / tenant.maxUsers) * 100) },
-    competitions: { used: tenant._count.competitions, max: tenant.maxCompetitions, percent: Math.round((tenant._count.competitions / tenant.maxCompetitions) * 100) },
-  };
-
   return NextResponse.json({
     ...tenant,
     userCount: tenant._count.users,
     competitionCount: tenant._count.competitions,
     programCount: tenant._count.programs,
     auditLogCount: tenant._count.auditLogs,
-    quotaUsage,
-    _count: undefined,
   });
 }
 
@@ -70,11 +62,7 @@ export async function PUT(
 
   const { id } = await params;
   const body = await request.json();
-  const {
-    name, domain, settings, isActive,
-    plan, maxUsers, maxCompetitions,
-    logoUrl, primaryColor, contactEmail, expiresAt,
-  } = body;
+  const { name, domain, settings, isActive, logoUrl, primaryColor, contactEmail, expiresAt } = body;
 
   const existing = await prisma.tenant.findUnique({ where: { id } });
   if (!existing) {
@@ -98,24 +86,10 @@ export async function PUT(
   if (primaryColor !== undefined) updateData.primaryColor = primaryColor;
   if (expiresAt !== undefined) updateData.expiresAt = expiresAt ? new Date(expiresAt) : null;
 
-  // 套餐变更：自动调整配额
-  if (plan !== undefined) {
-    const planKey = plan.toUpperCase() as keyof typeof PLAN_QUOTAS;
-    const quotas = PLAN_QUOTAS[planKey];
-    if (quotas) {
-      updateData.plan = planKey;
-      // 仅在未手动指定配额时自动调整
-      if (maxUsers === undefined) updateData.maxUsers = quotas.maxUsers;
-      if (maxCompetitions === undefined) updateData.maxCompetitions = quotas.maxCompetitions;
-    }
-  }
-  if (maxUsers !== undefined) updateData.maxUsers = maxUsers;
-  if (maxCompetitions !== undefined) updateData.maxCompetitions = maxCompetitions;
-
   const updated = await prisma.tenant.update({ where: { id }, data: updateData });
 
   await auditLog(session.user.tenantId, session.user.id, 'UPDATE_TENANT', id, {
-    previous: { name: existing.name, plan: existing.plan, isActive: existing.isActive },
+    previous: { name: existing.name, isActive: existing.isActive },
     updated: updateData,
   });
 

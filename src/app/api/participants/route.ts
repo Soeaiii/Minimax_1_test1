@@ -1,16 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
 // 获取所有选手
-export async function GET(request: Request) {
+export const GET = withTenantContext(async (request: Request) => {
   try {
-    // @ts-ignore
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: '未授权访问' }, { status: 401 });
-    }
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
@@ -20,10 +14,8 @@ export async function GET(request: Request) {
     
     const skip = (page - 1) * limit;
 
-    // 添加租户过滤 - 必须放在最外层
-    let where: any = {
-      tenantId: session.user.tenantId
-    };
+    // 构建查询条件（tenantId 由 Prisma 扩展自动注入）
+    let where: any = {};
 
     // 构建搜索条件
     const searchConditions = [];
@@ -118,19 +110,12 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 // 创建新选手
-export async function POST(request: Request) {
+export const POST = withTenantContext(async (request: Request) => {
   try {
-    // @ts-ignore
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     const body = await request.json();
     
@@ -153,7 +138,6 @@ export async function POST(request: Request) {
     const participant = await prisma.$transaction(async (tx) => {
       const newParticipant = await tx.participant.create({
         data: {
-          tenantId: session.user.tenantId,
           name: name.trim(),
           bio: bio?.trim() || undefined,
           team: team?.trim() || undefined,
@@ -180,8 +164,7 @@ export async function POST(request: Request) {
       // 记录审计日志
       await tx.auditLog.create({
         data: {
-          userId: session.user.id,
-          tenantId: session.user.tenantId,
+          userId: ctx.userId,
           action: 'CREATE',
           targetId: newParticipant.id,
           details: { 
@@ -203,4 +186,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

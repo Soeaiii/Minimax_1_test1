@@ -1,22 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext } from '@/lib/tenant-context';
 
-export async function GET(
+export const GET = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
 
     const { id: competitionId } = await params;
 
@@ -215,7 +205,7 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});
 
 // 计算评分统计
 function calculateScoreStatistics(programs: any[], criteria: any[]) {

@@ -1,29 +1,18 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
 /**
  * 获取当前大屏幕显示的节目信息
  * 供裁判打分页面使用，显示当前屏幕上正在显示的节目
  */
-export async function GET(
+export const GET = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // 检查用户是否已登录
-    // @ts-ignore
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
-
-    // 检查用户是否为评委
-    if (session.user.role !== 'JUDGE') {
+    const ctx = getTenantContext()!;
+    if (ctx.role !== 'JUDGE') {
       return NextResponse.json(
         { error: '只有评委可以访问此接口' },
         { status: 403 }
@@ -95,4 +84,4 @@ export async function GET(
       { status: 500 }
     );
   }
-} 
+});

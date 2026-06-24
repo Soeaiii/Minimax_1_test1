@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 import bcrypt from 'bcrypt';
 
 // 获取单个评委信息
-export async function GET(
+export const GET = withTenantContext(async (
   request: Request,
   context: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    const session = await getServerSession(authOptions);
+    const ctx = getTenantContext()!;
     
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ORGANIZER')) {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN' && ctx.role !== 'ORGANIZER') {
       return NextResponse.json(
         { error: '未授权访问' },
         { status: 401 }
@@ -52,17 +51,17 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});
 
 // 更新评委信息
-export async function PUT(
+export const PUT = withTenantContext(async (
   request: Request,
   context: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    const session = await getServerSession(authOptions);
+    const ctx = getTenantContext()!;
     
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ORGANIZER')) {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN' && ctx.role !== 'ORGANIZER') {
       return NextResponse.json(
         { error: '未授权访问' },
         { status: 401 }
@@ -147,8 +146,8 @@ export async function PUT(
     // 记录审计日志
     await prisma.auditLog.create({
       data: {
-        userId: session.user.id,
-        tenantId: session.user.tenantId,
+        tenantId: ctx.tenantId,
+        userId: ctx.userId,
         action: 'UPDATE_JUDGE',
         targetId: params.id,
         details: {
@@ -167,17 +166,17 @@ export async function PUT(
       { status: 500 }
     );
   }
-}
+});
 
 // 删除评委
-export async function DELETE(
+export const DELETE = withTenantContext(async (
   request: Request,
   context: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    const session = await getServerSession(authOptions);
+    const ctx = getTenantContext()!;
     
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ORGANIZER')) {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN' && ctx.role !== 'ORGANIZER') {
       return NextResponse.json(
         { error: '未授权访问' },
         { status: 401 }
@@ -248,8 +247,8 @@ export async function DELETE(
     // 记录审计日志
     await prisma.auditLog.create({
       data: {
-        userId: session.user.id,
-        tenantId: session.user.tenantId,
+        tenantId: ctx.tenantId,
+        userId: ctx.userId,
         action: force ? 'FORCE_DELETE_JUDGE' : 'DELETE_JUDGE',
         targetId: params.id,
         details: {
@@ -276,4 +275,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-}
+});

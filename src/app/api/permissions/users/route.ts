@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getToken } from 'next-auth/jwt'
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcrypt'
 import { z } from 'zod'
@@ -25,18 +25,12 @@ const updateUserSchema = z.object({
 })
 
 // 获取用户列表
-export async function GET(request: NextRequest) {
+export const GET = withTenantContext(async (request: NextRequest) => {
   try {
-    const token = await getToken({ req: request })
-    if (!token) {
-      return NextResponse.json(
-        { error: '未登录' },
-        { status: 401 }
-      )
-    }
+    const ctx = getTenantContext()!
 
     // 只有管理员可以查看用户列表
-    if (token.role !== 'ADMIN' && token.role !== 'SUPER_ADMIN') {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '权限不足' },
         { status: 403 }
@@ -48,14 +42,11 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const search = searchParams.get('search') || ''
     const role = searchParams.get('role') as UserRole | null
-    const tenantId = token.tenantId as string
 
     const skip = (page - 1) * limit
 
     // 构建查询条件
-    const where: any = {
-      tenantId,
-    }
+    const where: Record<string, unknown> = {}
 
     if (search) {
       where.OR = [
@@ -106,21 +97,15 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
 // 创建新用户
-export async function POST(request: NextRequest) {
+export const POST = withTenantContext(async (request: NextRequest) => {
   try {
-    const token = await getToken({ req: request })
-    if (!token) {
-      return NextResponse.json(
-        { error: '未登录' },
-        { status: 401 }
-      )
-    }
+    const ctx = getTenantContext()!
 
     // 只有管理员可以创建用户
-    if (token.role !== 'ADMIN' && token.role !== 'SUPER_ADMIN') {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '权限不足，只有管理员可以创建用户' },
         { status: 403 }
@@ -138,10 +123,9 @@ export async function POST(request: NextRequest) {
     }
 
     const { name, email, password, role, permissions, isActive } = result.data
-    const tenantId = token.tenantId as string
 
     // 只有 SUPER_ADMIN 才能创建 SUPER_ADMIN 用户
-    if (role === 'SUPER_ADMIN' && token.role !== 'SUPER_ADMIN') {
+    if (role === 'SUPER_ADMIN' && ctx.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '只有超级管理员可以创建超级管理员用户' },
         { status: 403 }
@@ -150,10 +134,7 @@ export async function POST(request: NextRequest) {
 
     // 检查邮箱是否已存在
     const existingUser = await prisma.user.findFirst({
-      where: { 
-        email,
-        tenantId,
-      },
+      where: { email },
     })
 
     if (existingUser) {
@@ -179,7 +160,6 @@ export async function POST(request: NextRequest) {
         role,
         permissions: userPermissions,
         isActive,
-        tenantId,
       },
       select: {
         id: true,
@@ -195,7 +175,7 @@ export async function POST(request: NextRequest) {
     // 记录审计日志
     await prisma.auditLog.create({
       data: {
-        userId: token.sub as string,
+        userId: ctx.userId,
         action: 'CREATE_USER',
         targetId: user.id,
         details: {
@@ -205,7 +185,6 @@ export async function POST(request: NextRequest) {
             role: user.role,
           },
         },
-        tenantId,
       },
     })
 
@@ -220,21 +199,15 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
 // 批量更新用户
-export async function PUT(request: NextRequest) {
+export const PUT = withTenantContext(async (request: NextRequest) => {
   try {
-    const token = await getToken({ req: request })
-    if (!token) {
-      return NextResponse.json(
-        { error: '未登录' },
-        { status: 401 }
-      )
-    }
+    const ctx = getTenantContext()!
 
     // 只有管理员可以批量更新用户
-    if (token.role !== 'ADMIN' && token.role !== 'SUPER_ADMIN') {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '权限不足' },
         { status: 403 }
@@ -259,13 +232,10 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const tenantId = token.tenantId as string
-
     // 批量更新用户
     const updatedUsers = await prisma.user.updateMany({
       where: {
         id: { in: userIds },
-        tenantId,
       },
       data: result.data,
     })
@@ -273,14 +243,13 @@ export async function PUT(request: NextRequest) {
     // 记录审计日志
     await prisma.auditLog.create({
       data: {
-        userId: token.sub as string,
+        userId: ctx.userId,
         action: 'BATCH_UPDATE_USERS',
         details: {
           userIds,
           updates: result.data,
           affectedCount: updatedUsers.count,
         },
-        tenantId,
       },
     })
 
@@ -295,7 +264,7 @@ export async function PUT(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
 // 根据角色获取默认权限
 function getDefaultPermissions(role: UserRole): string[] {

@@ -1,14 +1,11 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
-export async function GET() {
+export const GET = withTenantContext(async () => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
-    if (!session || session.user.role !== 'JUDGE') {
+    const ctx = getTenantContext()!;
+    if (ctx.role !== 'JUDGE') {
       return NextResponse.json(
         { error: '未授权访问' },
         { status: 401 }
@@ -17,7 +14,7 @@ export async function GET() {
 
     const profile = await prisma.user.findUnique({
       where: {
-        id: session.user.id,
+        id: ctx.userId,
       },
       select: {
         id: true,
@@ -45,4 +42,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-} 
+});

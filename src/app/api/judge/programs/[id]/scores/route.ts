@@ -1,18 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
 // 获取节目的现有评分
-export async function GET(
+export const GET = withTenantContext(async (
   request: Request,
   context: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
-    if (!session || session.user.role !== 'JUDGE') {
+    const ctx = getTenantContext()!;
+    if (ctx.role !== 'JUDGE') {
       return NextResponse.json(
         { error: '未授权访问' },
         { status: 401 }
@@ -23,7 +20,7 @@ export async function GET(
     const scores = await prisma.score.findMany({
       where: {
         programId: params.id,
-        judgeId: session.user.id,
+        judgeId: ctx.userId,
       },
       select: {
         id: true,
@@ -35,6 +32,7 @@ export async function GET(
 
     // 转换为前端需要的格式
     const formattedScores = scores.map(score => ({
+      id: score.id,
       criteriaId: score.scoringCriteriaId,
       value: score.value,
       comment: score.comment,
@@ -48,18 +46,16 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});
 
 // 保存或更新节目评分
-export async function POST(
+export const POST = withTenantContext(async (
   request: Request,
   context: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
-    if (!session || session.user.role !== 'JUDGE') {
+    const ctx = getTenantContext()!;
+    if (ctx.role !== 'JUDGE') {
       return NextResponse.json(
         { error: '未授权访问' },
         { status: 401 }
@@ -95,7 +91,7 @@ export async function POST(
       await tx.score.deleteMany({
         where: {
           programId: params.id,
-          judgeId: session.user.id,
+          judgeId: ctx.userId,
         },
       });
 
@@ -111,7 +107,7 @@ export async function POST(
               comment: score.comment || '',
               programId: params.id,
               scoringCriteriaId: score.criteriaId,
-              judgeId: session.user.id,
+              judgeId: ctx.userId,
             },
           });
         })
@@ -123,14 +119,13 @@ export async function POST(
     // 记录审计日志
     await prisma.auditLog.create({
       data: {
-        userId: session.user.id,
-        tenantId: session.user.tenantId,
+        userId: ctx.userId,
         action: 'SCORE_PROGRAM',
         targetId: params.id,
         details: {
           programId: params.id,
           scoresCount: scores.length,
-          judgeId: session.user.id,
+          judgeId: ctx.userId,
         },
       },
     });
@@ -143,4 +138,4 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+});

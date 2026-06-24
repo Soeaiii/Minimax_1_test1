@@ -1,24 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
-import { UserRole } from '@/lib/types';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
 // 获取数据访问统计
-export async function GET(request: Request) {
+export const GET = withTenantContext(async (request: Request) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     // 只有管理员可以查看数据访问统计
-    if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN') {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '权限不足' },
         { status: 403 }
@@ -86,4 +76,4 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});

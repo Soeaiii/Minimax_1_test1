@@ -1,17 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 import { UserRole } from '@/lib/types';
 
 // 获取用户列表，支持按角色筛选
-export async function GET(request: Request) {
+export const GET = withTenantContext(async (request: Request) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
+    const ctx = getTenantContext()!;
     
-    // 检查用户是否已登录且是管理员
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ORGANIZER')) {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN' && ctx.role !== 'ORGANIZER') {
       return NextResponse.json(
         { error: '未授权访问' },
         { status: 401 }
@@ -22,9 +19,9 @@ export async function GET(request: Request) {
     const role = searchParams.get('role') as UserRole | null;
     const search = searchParams.get('search');
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let where: any = {
-      tenantId: session.user.tenantId, // 添加租户过滤
-      isDeleted: false, // 只返回未删除的用户
+      isDeleted: false,
     };
     
     // 如果指定了角色，按角色筛选
@@ -71,4 +68,4 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-} 
+});

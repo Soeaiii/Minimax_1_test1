@@ -1,22 +1,22 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { prisma, prismaRaw } from '@/lib/prisma';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 import { cleanupAuditLogs } from '@/lib/auditLogCleanup';
 import * as XLSX from 'xlsx';
 
 // 获取审计日志
-export async function GET(request: Request) {
+async function GET_handler(request: Request) {
   try {
-    // @ts-ignore
-    const session = await getServerSession(authOptions);
-    
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN')) {
+    const ctx = getTenantContext()!;
+
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '权限不足' },
         { status: 403 }
       );
     }
+
+    const client = ctx.role === 'SUPER_ADMIN' ? prismaRaw : prisma;
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
@@ -33,10 +33,7 @@ export async function GET(request: Request) {
     // 构建查询条件
     const where: any = {};
 
-    // 租户隔离：SUPER_ADMIN 可查看所有租户日志，其他角色仅限当前租户
-    if (session.user.role !== 'SUPER_ADMIN') {
-      where.tenantId = session.user.tenantId;
-    }
+    // 租户隔离：prisma 扩展自动处理。SUPER_ADMIN 使用 prismaRaw 实现跨租户查询。
 
     if (search) {
       where.OR = [
@@ -66,7 +63,7 @@ export async function GET(request: Request) {
     
     // 如果是导出请求，获取所有匹配的数据
     if (exportXlsx) {
-      const logs = await prisma.auditLog.findMany({
+      const logs = await client.auditLog.findMany({
         where,
         include: {
           user: {
@@ -132,10 +129,10 @@ export async function GET(request: Request) {
     }
     
     // 获取总数
-    const total = await prisma.auditLog.count({ where });
+    const total = await client.auditLog.count({ where });
     
     // 获取分页数据
-    const logs = await prisma.auditLog.findMany({
+    const logs = await client.auditLog.findMany({
       where,
       include: {
         user: {
@@ -172,35 +169,37 @@ export async function GET(request: Request) {
   }
 }
 
+export const GET = withTenantContext(GET_handler);
+
 // 手动清理审计日志
-export async function DELETE(request: Request) {
+async function DELETE_handler(request: Request) {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
-    // 检查用户是否已登录且是管理员
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN')) {
+    const ctx = getTenantContext()!;
+
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '未授权操作，只有管理员可以清理审计日志' },
         { status: 403 }
       );
     }
-    
+
+    const client = ctx.role === 'SUPER_ADMIN' ? prismaRaw : prisma;
+
     // 获取清理前的总数
-    const beforeCount = await prisma.auditLog.count();
-    
+    const beforeCount = await client.auditLog.count();
+
     // 执行清理
     await cleanupAuditLogs();
-    
+
     // 获取清理后的总数
-    const afterCount = await prisma.auditLog.count();
+    const afterCount = await client.auditLog.count();
     const deletedCount = beforeCount - afterCount;
-    
+
     // 记录清理操作的审计日志
-    await prisma.auditLog.create({
+    await client.auditLog.create({
       data: {
-        userId: session.user.id,
-        tenantId: session.user.tenantId,
+        userId: ctx.userId,
+        ...(ctx.role === 'SUPER_ADMIN' ? { tenantId: ctx.tenantId } : {}),
         action: 'CLEANUP_AUDIT_LOGS',
         details: {
           beforeCount,
@@ -209,7 +208,7 @@ export async function DELETE(request: Request) {
         },
       },
     });
-    
+
     return NextResponse.json({
       success: true,
       message: '审计日志清理完成',
@@ -225,3 +224,5 @@ export async function DELETE(request: Request) {
     );
   }
 }
+
+export const DELETE = withTenantContext(DELETE_handler);

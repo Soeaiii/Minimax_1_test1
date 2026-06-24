@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
+
 
 // 获取大屏幕显示设置
-export async function GET(
+export const GET = withTenantContext(async (
   request: Request,
   context: { params: Promise<{ competitionId: string }> }
-) {
+) => {
   try {
+    const ctx = getTenantContext()!;
     const params = await context.params;
     
     const displaySettings = await prisma.displaySettings.findUnique({
@@ -38,6 +39,7 @@ export async function GET(
       // 如果没有设置，创建默认设置
       const newSettings = await prisma.displaySettings.create({
         data: {
+          tenantId: ctx.tenantId,
           competitionId: params.competitionId,
           showJudgeScores: true,
           showParticipants: true,
@@ -96,20 +98,22 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+
+});
+
 
 // 更新大屏幕显示设置
-export async function PUT(
+export const PUT = withTenantContext(async (
   request: Request,
   context: { params: Promise<{ competitionId: string }> }
-) {
+) => {
   try {
-    const session = await getServerSession(authOptions);
+    const ctx = getTenantContext()!;
     
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'ORGANIZER')) {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'ORGANIZER') {
       return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
+        { error: '无权限执行此操作' },
+        { status: 403 }
       );
     }
 
@@ -164,7 +168,7 @@ export async function PUT(
         averageScoreFontSize: body.averageScoreFontSize,
       },
       create: {
-        tenantId: session.user.tenantId,
+
         competitionId: params.competitionId,
         currentProgramId: currentProgramId,
         backgroundImageId: backgroundImageId,
@@ -225,8 +229,8 @@ export async function PUT(
     // 记录审计日志
     await prisma.auditLog.create({
       data: {
-        userId: session.user.id,
-        tenantId: session.user.tenantId,
+        userId: ctx.userId,
+        tenantId: ctx.tenantId,
         action: 'UPDATE_DISPLAY_SETTINGS',
         targetId: params.competitionId,
         details: {
@@ -244,4 +248,5 @@ export async function PUT(
       { status: 500 }
     );
   }
-}
+
+});

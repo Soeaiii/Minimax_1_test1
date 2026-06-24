@@ -1,17 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
-export async function POST() {
+export const POST = withTenantContext(async () => {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     let fixedParticipants = 0;
     let fixedPrograms = 0;
@@ -67,8 +60,7 @@ export async function POST() {
       if (fixedParticipants > 0 || fixedPrograms > 0) {
         await tx.auditLog.create({
           data: {
-            userId: session.user.id,
-            tenantId: session.user.tenantId,
+            userId: ctx.userId,
             action: 'FIX_DUPLICATE_IDS',
             targetId: 'system',
             details: {
@@ -95,4 +87,4 @@ export async function POST() {
       { status: 500 }
     );
   }
-}
+});

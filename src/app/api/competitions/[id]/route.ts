@@ -1,22 +1,17 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 import { PrismaClient, Prisma } from '@prisma/client';
 
 // 获取单个比赛
-export async function GET(
+export const GET = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
     // 修复：在 Next.js 15 中 params 需要被 await
     const { id } = await params;
-    
-    // 修复：优化会话获取
-    // @ts-ignore 忽略NextAuth类型兼容性问题
-    const session = await getServerSession(authOptions);
-    
+    const ctx = getTenantContext()!;
     // 检查ID是否有效的UUID格式
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
       return NextResponse.json(
@@ -30,7 +25,6 @@ export async function GET(
       const competition = await prisma.competition.findUnique({
         where: {
           id,
-          tenantId: session?.user?.tenantId
         },
         include: {
           organizer: {
@@ -90,24 +84,11 @@ export async function GET(
         );
       }
       
-      // 修复：优化权限检查逻辑
-      if (!session) {
-        // 对于公开比赛，允许未登录用户查看
-        if (competition.status === 'ACTIVE' || competition.status === 'FINISHED') {
-          return NextResponse.json(competition);
-        } else {
-          return NextResponse.json(
-            { error: '请先登录后再查看比赛详情' },
-            { status: 401 }
-          );
-        }
-      }
-      
       // 检查用户权限
       const hasPermission = 
-        session.user.role === 'ADMIN' || 
-        competition.organizerId === session.user.id ||
-        session.user.role === 'JUDGE' ||
+        ctx.role === 'ADMIN' || 
+        competition.organizerId === ctx.userId ||
+        ctx.role === 'JUDGE' ||
         ['ACTIVE', 'FINISHED'].includes(competition.status);
       
       if (!hasPermission) {
@@ -147,19 +128,18 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});
 
 // 更新比赛
-export async function PUT(
+export const PUT = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
+    const ctx = getTenantContext()!;
     
-    // 检查用户是否已登录且是管理员或组织者
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ORGANIZER')) {
+    // 检查用户是否是管理员或组织者
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN' && ctx.role !== 'ORGANIZER') {
       return NextResponse.json(
         { error: '未授权操作' },
         { status: 403 }
@@ -173,7 +153,6 @@ export async function PUT(
     const currentCompetition = await prisma.competition.findUnique({
       where: {
         id,
-        tenantId: session.user.tenantId
       },
       include: {
         scoringCriteria: true,
@@ -188,7 +167,7 @@ export async function PUT(
     }
     
     // 检查是否是管理员或比赛创建者
-    if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && currentCompetition.organizerId !== session.user.id) {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN' && currentCompetition.organizerId !== ctx.userId) {
       return NextResponse.json(
         { error: '您没有权限更新此比赛' },
         { status: 403 }
@@ -208,6 +187,9 @@ export async function PUT(
           status: body.status,
           rankingUpdateMode: body.rankingUpdateMode,
           organizerId: body.organizerId || undefined,
+          registrationEnabled: body.registrationEnabled ?? undefined,
+          registrationToken: body.registrationToken ?? undefined,
+          registrationFields: body.registrationFields ?? undefined,
         },
       });
       
@@ -225,6 +207,7 @@ export async function PUT(
             for (const criteria of body.scoringCriteria) {
               await prisma.scoringCriteria.create({
                 data: {
+                  tenantId: ctx.tenantId,
                   name: criteria.name,
                   weight: criteria.weight,
                   maxScore: criteria.maxScore,
@@ -244,8 +227,8 @@ export async function PUT(
       try {
         await prisma.auditLog.create({
           data: {
-            userId: session.user.id,
-            tenantId: session.user.tenantId,
+            tenantId: ctx.tenantId,
+            userId: ctx.userId,
             action: 'UPDATE_COMPETITION',
             targetId: id,
             details: {
@@ -310,19 +293,18 @@ export async function PUT(
       { status: 500 }
     );
   }
-}
+});
 
 // 删除比赛（归档）
-export async function DELETE(
+export const DELETE = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
+    const ctx = getTenantContext()!;
     
-    // 检查用户是否已登录且是管理员或组织者
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ORGANIZER')) {
+    // 检查用户是否是管理员或组织者
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN' && ctx.role !== 'ORGANIZER') {
       return NextResponse.json(
         { error: '未授权操作' },
         { status: 403 }
@@ -331,11 +313,10 @@ export async function DELETE(
 
     const { id } = await params; // 修复：await params
 
-    // 获取当前比赛（验证租户）
+    // 获取当前比赛
     const competition = await prisma.competition.findUnique({
       where: {
         id,
-        tenantId: session.user.tenantId
       },
     });
 
@@ -347,7 +328,7 @@ export async function DELETE(
     }
 
     // 检查是否是管理员或比赛创建者
-    if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && competition.organizerId !== session.user.id) {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN' && competition.organizerId !== ctx.userId) {
       return NextResponse.json(
         { error: '您没有权限归档此比赛' },
         { status: 403 }
@@ -365,8 +346,7 @@ export async function DELETE(
     // 记录审计日志
     await prisma.auditLog.create({
       data: {
-        userId: session.user.id,
-        tenantId: session.user.tenantId,
+        userId: ctx.userId,
         action: 'ARCHIVE_COMPETITION',
         targetId: id,
         details: { competition },
@@ -381,18 +361,14 @@ export async function DELETE(
       { status: 500 }
     );
   }
-}
+});
 
-export async function PATCH(
+export const PATCH = withTenantContext(async (
   req: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: "未授权" }, { status: 401 });
-    }
+    const ctx = getTenantContext()!;
 
     const { id } = await params;
     const body = await req.json();
@@ -408,11 +384,10 @@ export async function PATCH(
       customFieldDefinitions,
     } = body;
 
-    // 验证比赛存在（验证租户）
+    // 验证比赛存在
     const existingCompetition = await prisma.competition.findUnique({
       where: {
         id,
-        tenantId: session.user.tenantId
       },
       include: {
         scoringCriteria: true,
@@ -425,8 +400,8 @@ export async function PATCH(
 
     // 验证当前用户是否有权限编辑该比赛
     if (
-      session.user.role !== "ADMIN" &&
-      existingCompetition.organizerId !== session.user.id
+      ctx.role !== "ADMIN" &&
+      existingCompetition.organizerId !== ctx.userId
     ) {
       return NextResponse.json({ error: "无权限编辑此比赛" }, { status: 403 });
     }
@@ -467,4 +442,4 @@ export async function PATCH(
       { status: 500 }
     );
   }
-}
+});

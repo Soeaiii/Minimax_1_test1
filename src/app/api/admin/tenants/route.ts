@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcrypt';
-import { getAuthSession, auditLog, checkQuota, PLAN_QUOTAS } from '@/lib/tenant-guard';
+import { getAuthSession, auditLog } from '@/lib/tenant-guard';
 
 // 获取所有租户列表
 export async function GET(request: Request) {
@@ -16,7 +16,6 @@ export async function GET(request: Request) {
   const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '20', 10)));
   const search = searchParams.get('search');
   const isActive = searchParams.get('isActive');
-  const plan = searchParams.get('plan');
 
   const where: any = {};
   if (search) {
@@ -28,9 +27,6 @@ export async function GET(request: Request) {
   }
   if (isActive !== null && isActive !== undefined && isActive !== '') {
     where.isActive = isActive === 'true';
-  }
-  if (plan) {
-    where.plan = plan.toUpperCase();
   }
 
   const total = await prisma.tenant.count({ where });
@@ -67,7 +63,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { name, domain, settings, adminEmail, adminPassword, adminName, plan, contactEmail } = body;
+  const { name, domain, settings, adminEmail, adminPassword, adminName, contactEmail } = body;
 
   if (!name) {
     return NextResponse.json({ error: '租户名称不能为空' }, { status: 400 });
@@ -91,9 +87,6 @@ export async function POST(request: Request) {
     }
   }
 
-  // 根据套餐设置配额
-  const planKey = (plan?.toUpperCase() || 'FREE') as keyof typeof PLAN_QUOTAS;
-  const quotas = PLAN_QUOTAS[planKey] || PLAN_QUOTAS.FREE;
 
   const result = await prisma.$transaction(async (tx) => {
     const tenant = await tx.tenant.create({
@@ -102,9 +95,6 @@ export async function POST(request: Request) {
         domain: domain || null,
         settings: settings || {},
         isActive: true,
-        plan: planKey,
-        maxUsers: quotas.maxUsers,
-        maxCompetitions: quotas.maxCompetitions,
         contactEmail: contactEmail || null,
         createdBy: session.user.id,
       },
@@ -132,7 +122,6 @@ export async function POST(request: Request) {
   await auditLog(session.user.tenantId, session.user.id, 'CREATE_TENANT', result.tenant.id, {
     tenantName: name,
     domain,
-    plan: planKey,
     adminCreated: !!result.adminUser,
   });
 

@@ -1,22 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
 // 获取所有节目
-export async function GET(request: Request) {
+export const GET = withTenantContext(async (request: Request) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
-    // 检查用户是否已登录
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
-    
+    const ctx = getTenantContext()!;
+
     // 解析查询参数
     const { searchParams } = new URL(request.url);
     const competitionId = searchParams.get('competitionId');
@@ -24,9 +14,7 @@ export async function GET(request: Request) {
     const search = searchParams.get('search');
     
     // 构建查询条件
-    const where: any = {
-      tenantId: session.user.tenantId
-    };
+    const where: Record<string, unknown> = {};
     if (competitionId) {
       where.competitionId = competitionId;
     }
@@ -53,17 +41,16 @@ export async function GET(request: Request) {
     }
     
     // 如果不是管理员，只显示自己有权限的比赛中的节目
-    if (session.user.role !== 'ADMIN') {
+    if (ctx.role !== 'ADMIN') {
       where.competition = {
         OR: [
-          { organizerId: session.user.id },
+          { organizerId: ctx.userId },
           { status: 'ACTIVE' },
           { status: 'FINISHED' },
         ],
       };
     }
     
-    // 优化查询 - 分步获取数据避免重复查询
     // 解析分页参数
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '20', 10)));
@@ -118,15 +105,12 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 // 创建新节目
-export async function POST(req: Request) {
+export const POST = withTenantContext(async (req: Request) => {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: "未授权" }, { status: 401 });
-    }
+    const ctx = getTenantContext()!;
 
     const body = await req.json();
     const {
@@ -141,7 +125,7 @@ export async function POST(req: Request) {
 
     // 验证比赛存在且属于同一租户
     const competition = await prisma.competition.findUnique({
-      where: { id: competitionId, tenantId: session.user.tenantId },
+      where: { id: competitionId },
     });
     if (!competition) {
       return NextResponse.json({ error: "比赛不存在" }, { status: 404 });
@@ -162,7 +146,6 @@ export async function POST(req: Request) {
       // 1. 创建节目
       const newProgram = await tx.program.create({
         data: {
-          tenantId: session.user.tenantId,
           name,
           description,
           competitionId,
@@ -204,4 +187,4 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
-} 
+});

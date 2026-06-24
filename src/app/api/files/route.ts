@@ -3,20 +3,11 @@ import { unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
-export async function GET() {
+export const GET = withTenantContext(async () => {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: '未授权访问' }, { status: 401 });
-    }
-
     const files = await prisma.file.findMany({
-      where: {
-        tenantId: session.user.tenantId
-      },
       include: {
         programFiles: {
           include: {
@@ -61,18 +52,11 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});
 
-export async function DELETE(request: NextRequest) {
+export const DELETE = withTenantContext(async (request: NextRequest) => {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     const { fileIds } = await request.json();
 
@@ -89,7 +73,6 @@ export async function DELETE(request: NextRequest) {
         id: {
           in: fileIds,
         },
-        tenantId: session.user.tenantId,
       },
       include: {
         programFiles: true,
@@ -109,7 +92,7 @@ export async function DELETE(request: NextRequest) {
       file.programFiles.length > 0 || file.competitionFiles.length > 0
     );
     
-    if (filesWithAssociations.length > 0 && session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ORGANIZER') {
+    if (filesWithAssociations.length > 0 && ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN' && ctx.role !== 'ORGANIZER') {
       return NextResponse.json(
         { error: `有 ${filesWithAssociations.length} 个文件正在使用中，无法删除` },
         { status: 400 }
@@ -147,8 +130,7 @@ export async function DELETE(request: NextRequest) {
         try {
           await prisma.auditLog.create({
             data: {
-              userId: session.user.id,
-              tenantId: session.user.tenantId,
+              userId: ctx.userId,
               action: 'DELETE_FILE',
               targetId: file.id,
               details: {
@@ -187,4 +169,4 @@ export async function DELETE(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

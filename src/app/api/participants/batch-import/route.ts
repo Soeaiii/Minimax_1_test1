@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
 interface ImportRow {
   name: string;
@@ -19,16 +18,9 @@ interface ProcessedRow {
   _rowIndex: number;
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withTenantContext(async (request: NextRequest) => {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
-
+    const ctx = getTenantContext()!;
     const body = await request.json();
     const { data }: { data: ImportRow[] } = body;
 
@@ -71,7 +63,6 @@ export async function POST(request: NextRequest) {
       // 2. 批量检查重复数据（仅当前租户）
       const existingParticipants = await tx.participant.findMany({
         where: {
-          tenantId: session.user.tenantId,
           OR: validRows.map(row => ({
             name: row.name,
             team: row.team || null
@@ -107,7 +98,6 @@ export async function POST(request: NextRequest) {
       try {
         const createManyResult = await tx.participant.createMany({
           data: dataToImport.map(row => ({
-            tenantId: session.user.tenantId,
             name: row.name,
             bio: row.bio,
             team: row.team,
@@ -133,8 +123,7 @@ export async function POST(request: NextRequest) {
         if (createdParticipants.length > 0) {
           await tx.auditLog.createMany({
             data: createdParticipants.map((participant, index) => ({
-              userId: session.user.id,
-              tenantId: session.user.tenantId,
+              userId: ctx.userId,
               action: 'BATCH_IMPORT_PARTICIPANT',
               targetId: participant.id,
               details: {
@@ -166,8 +155,7 @@ export async function POST(request: NextRequest) {
     // 记录批量导入操作
     await prisma.auditLog.create({
       data: {
-        userId: session.user.id,
-        tenantId: session.user.tenantId,
+        userId: ctx.userId,
         action: 'BATCH_IMPORT_COMPLETE',
         targetId: 'participants',
         details: {
@@ -197,4 +185,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

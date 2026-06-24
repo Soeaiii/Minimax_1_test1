@@ -22,11 +22,7 @@ model Tenant {
   updatedAt      DateTime  @updatedAt
   isActive       Boolean   @default(true)
 
-  // ── 企业级字段 ──
   createdBy      String?                          // 创建者 userId
-  plan           TenantPlan    @default(FREE)     // 套餐
-  maxUsers       Int           @default(100)      // 用户上限
-  maxCompetitions Int          @default(10)       // 比赛上限
   logoUrl        String?                          // 品牌 Logo
   primaryColor   String?       @default("#3b82f6")// 品牌主色
   contactEmail   String?                          // 管理员联系邮箱
@@ -44,9 +40,11 @@ model Tenant {
   rankings         Ranking[]
   files            File[]
   displaySettings  DisplaySettings[]
+  rounds           CompetitionRound[]
+  groups           CompetitionGroup[]
+  notifications    Notification[]
 
   @@index([isActive])
-  @@index([plan])
 }
 
 model User {
@@ -70,6 +68,7 @@ model User {
   competitions        Competition[]     @relation("OrganizedCompetitions")
   createdCompetitions Competition[]     @relation("CreatedCompetitions")
   auditLogs           AuditLog[]
+  notifications        Notification[]
   judgeScores         Score[]           @relation("JudgeScores")
   judgeAssignments    JudgeAssignment[]
 
@@ -88,12 +87,6 @@ enum UserRole {
   USER
 }
 
-enum TenantPlan {
-  FREE
-  BASIC
-  PRO
-  ENTERPRISE
-}
 
 model Competition {
   id                     String            @id @default(uuid())
@@ -110,6 +103,13 @@ model Competition {
   createdAt              DateTime          @default(now())
   updatedAt              DateTime          @updatedAt
   customFieldDefinitions Json? // 比赛级别的自定义字段定义
+  registrationToken      String? // 报名链接Token（公开报名用）
+  registrationEnabled    Boolean @default(false) // 是否开启公开报名
+  registrationFields     Json?   @default("[\"name\",\"team\",\"contact\"]") // 报名表显示的字段
+
+  // 赛制
+  rounds CompetitionRound[]
+  groups CompetitionGroup[]
 
   // 关系
   tenant           Tenant            @relation(fields: [tenantId], references: [id])
@@ -127,6 +127,50 @@ model Competition {
   @@index([organizerId])
   @@index([creatorId])
   @@index([status])
+}
+
+// 比赛轮次
+model CompetitionRound {
+  id            String        @id @default(uuid())
+  tenantId      String
+  competitionId String
+  name          String        // 如"初赛""复赛""决赛"
+  roundOrder    Int           @default(1) // 轮次序号
+  promotionRule Json?         // 晋级规则：{ type: "topN" | "minScore", value: number }
+  status        RoundStatus   @default(PENDING)
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  programs    Program[]
+  rankings    Ranking[]
+  criteria    ScoringCriteria[]
+
+  @@index([tenantId])
+  @@index([competitionId])
+  @@index([competitionId, roundOrder])
+}
+
+enum RoundStatus {
+  PENDING
+  ACTIVE
+  FINISHED
+}
+
+// 比赛组别
+model CompetitionGroup {
+  id            String @id @default(uuid())
+  tenantId      String
+  competitionId String
+  name          String // 如"少儿组""青年组""成人组"
+  description   String?
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  programs    Program[]
+  rankings    Ranking[]
+
+  @@index([tenantId])
+  @@index([competitionId])
 }
 
 enum CompetitionStatus {
@@ -148,10 +192,12 @@ model ScoringCriteria {
   weight        Float
   maxScore      Float
   competitionId String
+  roundId       String?
 
   // 关系
-  tenant      Tenant      @relation(fields: [tenantId], references: [id])
-  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  tenant      Tenant           @relation(fields: [tenantId], references: [id])
+  competition Competition      @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  round       CompetitionRound? @relation(fields: [roundId], references: [id])
   scores      Score[]
 
   @@index([tenantId])
@@ -184,6 +230,8 @@ model Program {
   order         Int
   currentStatus ProgramStatus @default(WAITING)
   competitionId String
+  roundId       String?
+  groupId       String?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   customFields  Json? // 添加自定义字段支持，存储为JSON格式
@@ -191,6 +239,8 @@ model Program {
   // 关系
   tenant              Tenant               @relation(fields: [tenantId], references: [id])
   competition         Competition          @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  round               CompetitionRound?    @relation(fields: [roundId], references: [id])
+  group               CompetitionGroup?    @relation(fields: [groupId], references: [id])
   participantPrograms ParticipantProgram[]
   programFiles        ProgramFile[]
   scores              Score[]
@@ -238,13 +288,17 @@ model Ranking {
   updateType    UpdateType @default(AUTO)
   competitionId String
   programId     String     @unique
+  roundId       String?
+  groupId       String?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
   // 关系
-  tenant      Tenant      @relation(fields: [tenantId], references: [id])
-  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  program     Program     @relation(fields: [programId], references: [id], onDelete: Cascade)
+  tenant      Tenant           @relation(fields: [tenantId], references: [id])
+  competition Competition      @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  program     Program          @relation(fields: [programId], references: [id], onDelete: Cascade)
+  round       CompetitionRound? @relation(fields: [roundId], references: [id])
+  group       CompetitionGroup? @relation(fields: [groupId], references: [id])
 
   @@index([tenantId])
   @@index([competitionId])
@@ -253,6 +307,27 @@ model Ranking {
 enum UpdateType {
   AUTO
   MANUAL
+}
+
+// 站内通知
+model Notification {
+  id        String   @id @default(uuid())
+  tenantId  String
+  userId    String
+  type      String   @default("system") // system | score | promotion | certificate
+  title     String
+  content   String?
+  isRead    Boolean  @default(false)
+  relatedId String?  // 关联的对象ID（如比赛/节目/证书）
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
 }
 
 model File {
@@ -279,14 +354,14 @@ model AuditLog {
   id        String   @id @default(uuid())
   tenantId  String
   timestamp DateTime @default(now())
-  userId    String
+  userId    String?
   action    String
   targetId  String?
   details   Json?
 
   // 关系
   tenant Tenant @relation(fields: [tenantId], references: [id])
-  user   User   @relation(fields: [userId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id])
 
   @@index([tenantId])
   @@index([userId])

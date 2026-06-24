@@ -22,9 +22,6 @@ const settingsSchema = z.object({
   name: z.string().min(1, '租户名称不能为空'),
   domain: z.string().optional(),
   isActive: z.boolean(),
-  plan: z.enum(['FREE', 'BASIC', 'PRO', 'ENTERPRISE']),
-  maxUsers: z.coerce.number().min(1).max(99999),
-  maxCompetitions: z.coerce.number().min(1).max(9999),
   contactEmail: z.string().email().optional().or(z.literal('')),
   primaryColor: z.string().optional(),
   allowRegistration: z.boolean(),
@@ -55,9 +52,6 @@ export default function TenantSettingsPage() {
       name: '',
       domain: '',
       isActive: true,
-      plan: 'FREE',
-      maxUsers: 100,
-      maxCompetitions: 10,
       contactEmail: '',
       primaryColor: '#3b82f6',
       allowRegistration: true,
@@ -79,9 +73,6 @@ export default function TenantSettingsPage() {
           name: data.name || '',
           domain: data.domain || '',
           isActive: data.isActive ?? true,
-          plan: data.plan || 'FREE',
-          maxUsers: data.maxUsers ?? 100,
-          maxCompetitions: data.maxCompetitions ?? 10,
           contactEmail: data.contactEmail || '',
           primaryColor: data.primaryColor || '#3b82f6',
           allowRegistration: settings?.allowRegistration ?? true,
@@ -105,9 +96,6 @@ export default function TenantSettingsPage() {
           name: data.name,
           domain: data.domain || null,
           isActive: data.isActive,
-          plan: data.plan,
-          maxUsers: data.maxUsers,
-          maxCompetitions: data.maxCompetitions,
           contactEmail: data.contactEmail || null,
           primaryColor: data.primaryColor,
           settings: {
@@ -206,60 +194,10 @@ export default function TenantSettingsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>套餐与配额</CardTitle>
-              <CardDescription>管理租户的套餐级别和资源配额</CardDescription>
+              <CardTitle>品牌设置</CardTitle>
+              <CardDescription>自定义品牌外观</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <FormField
-                control={form.control}
-                name="plan"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>套餐级别</FormLabel>
-                    <FormControl>
-                      <select
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        value={field.value}
-                        onChange={field.onChange}
-                      >
-                        <option value="FREE">免费版 (10用户/3比赛)</option>
-                        <option value="BASIC">基础版 (100用户/10比赛)</option>
-                        <option value="PRO">专业版 (500用户/50比赛)</option>
-                        <option value="ENTERPRISE">企业版 (5000用户/不限比赛)</option>
-                      </select>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="maxUsers"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>最大用户数</FormLabel>
-                      <FormControl>
-                        <Input type="number" min={1} max={99999} {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="maxCompetitions"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>最大比赛数</FormLabel>
-                      <FormControl>
-                        <Input type="number" min={1} max={9999} {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
               <FormField
                 control={form.control}
                 name="primaryColor"

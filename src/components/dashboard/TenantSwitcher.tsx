@@ -20,7 +20,6 @@ interface Tenant {
   name: string;
   domain: string | null;
   isActive: boolean;
-  plan: string;
 }
 
 export function TenantSwitcher() {
@@ -126,7 +125,7 @@ export function TenantSwitcher() {
               >
                 <div className="flex flex-col">
                   <span className="font-medium">{tenant.name}</span>
-                  <span className="text-xs text-muted-foreground">{tenant.domain || '无域名'} · {tenant.plan}</span>
+                  <span className="text-xs text-muted-foreground">{tenant.domain || '无域名'}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   {!tenant.isActive && <Badge variant="destructive" className="text-[10px]">已停用</Badge>}

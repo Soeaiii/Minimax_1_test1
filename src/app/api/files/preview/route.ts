@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
-
-export async function GET(request: NextRequest) {
+import { prisma } from '@/lib/prisma';
+import { withTenantContext } from '@/lib/tenant-context';
+export const GET = withTenantContext(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
     const filePath = searchParams.get('path');
@@ -12,6 +13,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: '缺少文件路径参数' },
         { status: 400 }
+      );
+    }
+
+    // 通过数据库验证文件属于当前租户
+    const file = await prisma.file.findFirst({
+      where: {
+        path: filePath,
+      },
+    });
+
+    if (!file) {
+      return NextResponse.json(
+        { error: '文件不存在' },
+        { status: 404 }
       );
     }
 
@@ -67,4 +82,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+});

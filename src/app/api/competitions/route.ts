@@ -1,38 +1,23 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
 // 获取所有比赛
-export async function GET(request: Request) {
+export const GET = withTenantContext(async (request: Request) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
-    // 检查用户是否已登录
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
     
     // 解析查询参数
     const { searchParams } = new URL(request.url);
+    const where: Record<string, unknown> = {};
     const status = searchParams.get('status');
-    
-    // 构建查询条件
-    const where: any = {
-      tenantId: session.user.tenantId
-    };
     if (status) {
       where.status = status.toUpperCase();
     }
     
-    // 如果不是管理员，仅显示自己组织的比赛或公开的比赛
-    if (session.user.role !== 'ADMIN') {
+    if (ctx.role !== 'ADMIN') {
       where.OR = [
-        { organizerId: session.user.id },
+        { organizerId: ctx.userId },
         { status: 'ACTIVE' },
         { status: 'FINISHED' },
       ];
@@ -71,16 +56,15 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 // 创建新比赛
-export async function POST(request: Request) {
+export const POST = withTenantContext(async (request: Request) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
+    const ctx = getTenantContext()!;
     
-    // 检查用户是否已登录且是管理员或组织者
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ORGANIZER')) {
+    // 检查用户是否是管理员或组织者
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN' && ctx.role !== 'ORGANIZER') {
       return NextResponse.json(
         { error: '未授权操作，只有管理员或组织者可以创建比赛' },
         { status: 403 }
@@ -100,11 +84,11 @@ export async function POST(request: Request) {
     // 创建比赛
     const competition = await prisma.competition.create({
       data: {
+        tenantId: ctx.tenantId,
         name: body.name,
         description: body.description,
-        organizerId: session.user.id,
-        tenantId: session.user.tenantId,
-        creatorId: session.user.id,
+        organizerId: ctx.userId,
+        creatorId: ctx.userId,
         startTime: new Date(body.startTime),
         endTime: new Date(body.endTime),
         status: body.status,
@@ -113,10 +97,10 @@ export async function POST(request: Request) {
         scoringCriteria: body.scoringCriteria && body.scoringCriteria.length > 0
           ? {
               create: body.scoringCriteria.map((criteria: any) => ({
+                tenantId: ctx.tenantId,
                 name: criteria.name,
                 weight: criteria.weight,
                 maxScore: criteria.maxScore,
-                tenantId: session.user.tenantId,
               })),
             }
           : undefined,
@@ -126,8 +110,8 @@ export async function POST(request: Request) {
     // 记录审计日志
     await prisma.auditLog.create({
       data: {
-        userId: session.user.id,
-        tenantId: session.user.tenantId,
+        tenantId: ctx.tenantId,
+        userId: ctx.userId,
         action: 'CREATE_COMPETITION',
         targetId: competition.id,
         details: { competitionData: body },
@@ -146,4 +130,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

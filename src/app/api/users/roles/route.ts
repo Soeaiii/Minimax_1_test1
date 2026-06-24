@@ -1,35 +1,26 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 import { UserRole } from '@/lib/types';
 
 // 获取用户角色和权限信息
-export async function GET(request: Request) {
+export const GET = withTenantContext(async (request: Request) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
-    
+
     // 如果指定了userId且当前用户不是管理员，只能查看自己的信息
-    if (userId && userId !== session.user.id && (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN')) {
+    if (userId && userId !== ctx.userId && (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN')) {
       return NextResponse.json(
         { error: '无权限查看其他用户信息' },
         { status: 403 }
       );
     }
-    
-    const targetUserId = userId || session.user.id;
-    
+
+    const targetUserId = userId || ctx.userId;
+
     // 获取用户信息
     const user = await prisma.user.findUnique({
       where: { id: targetUserId },
@@ -41,20 +32,20 @@ export async function GET(request: Request) {
         createdAt: true,
       },
     });
-    
+
     if (!user) {
       return NextResponse.json(
         { error: '用户不存在' },
         { status: 404 }
       );
     }
-    
+
     // 根据角色获取权限列表
     const permissions = getPermissionsByRole(user.role);
-    
+
     // 根据角色获取数据访问范围
     const dataScope = await getDataScopeByRole(user.role, user.id);
-    
+
     return NextResponse.json({
       role: user.role,
       permissions,
@@ -73,7 +64,7 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 // 根据角色获取权限列表
 function getPermissionsByRole(role: UserRole): string[] {

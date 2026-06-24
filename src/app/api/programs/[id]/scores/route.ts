@@ -1,29 +1,18 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
 // 获取节目评分
-export async function GET(
+export const GET = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
-
     const { id: programId } = await params;
 
     // 检查节目是否存在且属于同一租户
     const program = await prisma.program.findUnique({
-      where: { id: programId, tenantId: session.user.tenantId },
+      where: { id: programId },
       include: {
         competition: {
           select: {
@@ -69,23 +58,15 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});
 
 // 添加评分
-export async function POST(
+export const POST = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     const { id: programId } = await params;
     const body = await request.json();
@@ -107,7 +88,7 @@ export async function POST(
 
     // 检查节目是否存在且属于同一租户
     const program = await prisma.program.findUnique({
-      where: { id: programId, tenantId: session.user.tenantId },
+      where: { id: programId },
       include: {
         competition: {
           select: {
@@ -195,8 +176,7 @@ export async function POST(
       // 记录审计日志
       await prisma.auditLog.create({
         data: {
-          tenantId: session.user.tenantId,
-          userId: session.user.id,
+          userId: ctx.userId,
           action: 'UPDATE_SCORE',
           targetId: updatedScore.id,
           details: {
@@ -213,7 +193,6 @@ export async function POST(
       // 创建新评分
       const newScore = await prisma.score.create({
         data: {
-          tenantId: session.user.tenantId,
           programId,
           scoringCriteriaId,
           value,
@@ -235,8 +214,7 @@ export async function POST(
       // 记录审计日志
       await prisma.auditLog.create({
         data: {
-          tenantId: session.user.tenantId,
-          userId: session.user.id,
+          userId: ctx.userId,
           action: 'CREATE_SCORE',
           targetId: newScore.id,
           details: {
@@ -256,23 +234,15 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+});
 
 // 删除评分
-export async function DELETE(
+export const DELETE = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     const { id: programId } = await params;
     const { searchParams } = new URL(request.url);
@@ -290,7 +260,6 @@ export async function DELETE(
       where: {
         id: scoreId,
         programId: programId,
-        tenantId: session.user.tenantId,
       },
       include: {
         program: {
@@ -315,8 +284,8 @@ export async function DELETE(
     }
 
     // 权限检查：只有管理员或比赛组织者可以删除评分
-    const canDelete = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN' ||
-                     score.program.competition.organizerId === session.user.id;
+    const canDelete = ctx.role === 'ADMIN' || ctx.role === 'SUPER_ADMIN' ||
+                     score.program.competition.organizerId === ctx.userId;
 
     if (!canDelete) {
       return NextResponse.json(
@@ -333,8 +302,7 @@ export async function DELETE(
     // 记录审计日志
     await prisma.auditLog.create({
       data: {
-        tenantId: session.user.tenantId,
-        userId: session.user.id,
+        userId: ctx.userId,
         action: 'DELETE_SCORE',
         targetId: scoreId,
         details: {
@@ -353,4 +321,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-}
+});

@@ -1,24 +1,18 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
 // 获取单个选手详情
-export async function GET(
+export const GET = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: '未授权访问' }, { status: 401 });
-    }
 
     const { id } = await params;
 
     const participant = await prisma.participant.findUnique({
-      where: { id, tenantId: session.user.tenantId },
+      where: { id },
       include: {
         participantPrograms: {
           include: {
@@ -53,22 +47,15 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});
 
 // 更新选手
-export async function PUT(
+export const PUT = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     const { id } = await params;
     const body = await request.json();
@@ -90,7 +77,7 @@ export async function PUT(
     
     // 检查选手是否存在且属于当前租户
     const existingParticipant = await prisma.participant.findUnique({
-      where: { id, tenantId: session.user.tenantId },
+      where: { id },
     });
 
     if (!existingParticipant) {
@@ -103,7 +90,7 @@ export async function PUT(
     // 更新选手
     const updatedParticipant = await prisma.$transaction(async (tx) => {
       const updated = await tx.participant.update({
-        where: { id, tenantId: session.user.tenantId },
+        where: { id },
         data: {
           name: name.trim(),
           bio: bio?.trim() || undefined,
@@ -132,8 +119,8 @@ export async function PUT(
       // 记录审计日志
       await tx.auditLog.create({
         data: {
-          userId: session.user.id,
-          tenantId: session.user.tenantId,
+          userId: ctx.userId,
+          tenantId: ctx.tenantId,
           action: 'UPDATE',
           targetId: id,
           details: {
@@ -158,28 +145,19 @@ export async function PUT(
       { status: 500 }
     );
   }
-}
-
+});
 // 删除选手
-export async function DELETE(
+export const DELETE = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     const { id } = await params;
-    
     // 检查选手是否存在且属于当前租户
     const existingParticipant = await prisma.participant.findUnique({
-      where: { id, tenantId: session.user.tenantId },
+      where: { id },
       include: {
         participantPrograms: true,
       },
@@ -205,8 +183,8 @@ export async function DELETE(
       // 记录审计日志
       await tx.auditLog.create({
         data: {
-          userId: session.user.id,
-          tenantId: session.user.tenantId,
+          userId: ctx.userId,
+          tenantId: ctx.tenantId,
           action: 'DELETE',
           targetId: id,
           details: {
@@ -219,7 +197,7 @@ export async function DELETE(
 
       // 删除选手
       await tx.participant.delete({
-        where: { id, tenantId: session.user.tenantId },
+        where: { id },
       });
     });
     
@@ -231,4 +209,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-}
+});

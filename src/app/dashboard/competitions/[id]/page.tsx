@@ -8,6 +8,7 @@ import Link from "next/link";
 import { ChevronLeft, Edit, Archive, Monitor, Trash2, Settings, ExternalLink } from "lucide-react";
 import { CompetitionDetail } from "@/components/dashboard/competitions/CompetitionDetail";
 import { CompetitionTabs } from "@/components/dashboard/competitions/CompetitionTabs";
+import { RegistrationManager } from "@/components/dashboard/competitions/RegistrationManager";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -375,6 +376,8 @@ export default function CompetitionDetailPage() {
       <CompetitionDetail competition={competition} />
       
       {/* 使用客户端组件处理所有Tab内容 */}
+      <RegistrationManager competitionId={id} />
+
       <CompetitionTabs competition={competition} competitionId={id} />
     </div>
   );

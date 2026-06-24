@@ -1,23 +1,21 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { prisma, prismaRaw } from '@/lib/prisma';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
-export async function GET() {
+export const GET = withTenantContext(async () => {
   try {
-    // @ts-ignore
-    const session = await getServerSession(authOptions);
+    const ctx = getTenantContext()!;
     
     // Only SUPER_ADMIN or ADMIN can access debug data
-    if (!session || (session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ADMIN')) {
+    if (ctx.role !== 'SUPER_ADMIN' && ctx.role !== 'ADMIN') {
       return NextResponse.json({ error: '未授权访问' }, { status: 401 });
     }
 
-    const tenantFilter = session.user.role === 'SUPER_ADMIN' ? {} : { tenantId: session.user.tenantId };
+    // SUPER_ADMIN uses raw client to bypass tenant isolation, others use tenant-scoped prisma
+    const client = ctx.role === 'SUPER_ADMIN' ? prismaRaw : prisma;
 
-    // 获取评分记录（按租户过滤）
-    const scores = await prisma.score.findMany({
-      where: tenantFilter,
+    // 获取评分记录
+    const scores = await client.score.findMany({
       include: {
         judge: {
           select: {
@@ -36,18 +34,16 @@ export async function GET() {
     });
 
     // 按评委分组统计
-    const judgeScoreCounts = await prisma.score.groupBy({
+    const judgeScoreCounts = await client.score.groupBy({
       by: ['judgeId'],
-      where: tenantFilter,
       _count: {
         id: true,
       }
     });
 
     // 获取评委信息
-    const judges = await prisma.user.findMany({
+    const judges = await client.user.findMany({
       where: {
-        ...tenantFilter,
         role: 'JUDGE',
         isDeleted: false,
       },
@@ -71,4 +67,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-} 
+});

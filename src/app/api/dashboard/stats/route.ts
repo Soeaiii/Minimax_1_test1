@@ -1,22 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext } from '@/lib/tenant-context';
 
-export async function GET() {
+
+export const GET = withTenantContext(async () => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
-
-    const tenantId = session.user.tenantId;
-
     // 优化后的统计数据获取 - 减少查询次数（全部租户隔离）
     const [
       competitionStats,
@@ -29,7 +17,7 @@ export async function GET() {
       // 比赛统计 - 合并查询
       prisma.competition.groupBy({
         by: ['status'],
-        where: { tenantId },
+        where: {},
         _count: {
           _all: true
         }
@@ -38,7 +26,7 @@ export async function GET() {
       // 节目统计 - 合并查询
       prisma.program.groupBy({
         by: ['currentStatus'],
-        where: { tenantId },
+        where: {},
         _count: {
           _all: true
         }
@@ -46,14 +34,13 @@ export async function GET() {
 
       // 选手统计 - 合并查询
       prisma.participant.aggregate({
-        where: { tenantId },
+        where: {},
         _count: {
           _all: true
         }
       }).then(async (totalCount) => {
         const teamsCount = await prisma.participant.findMany({
           where: {
-            tenantId,
             team: { not: null }
           },
           select: { team: true },
@@ -70,11 +57,10 @@ export async function GET() {
         _count: {
           _all: true
         },
-        where: { tenantId }
+        where: {}
       }).then(async (totalCount) => {
         const todayCount = await prisma.auditLog.count({
           where: {
-            tenantId,
             timestamp: {
               gte: new Date(new Date().setHours(0, 0, 0, 0))
             }
@@ -88,7 +74,7 @@ export async function GET() {
 
       // 最近的比赛
       prisma.competition.findMany({
-        where: { tenantId },
+        where: {},
         include: {
           organizer: {
             select: {
@@ -109,7 +95,7 @@ export async function GET() {
 
       // 最近的审计日志
       prisma.auditLog.findMany({
-        where: { tenantId },
+        where: {},
         include: {
           user: {
             select: {
@@ -168,4 +154,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-} 
+});

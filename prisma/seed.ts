@@ -35,9 +35,6 @@ async function main() {
         features: ['competitions', 'scoring', 'reports', 'display'],
       },
       isActive: true,
-      plan: 'PRO',
-      maxUsers: 500,
-      maxCompetitions: 50,
       contactEmail: 'admin@example.com',
     },
   })
@@ -55,9 +52,6 @@ async function main() {
         features: ['system'],
       },
       isActive: true,
-      plan: 'ENTERPRISE',
-      maxUsers: 100,
-      maxCompetitions: 999,
     },
   })
   console.log('✓ 已创建系统租户:', systemTenant.name)
@@ -475,6 +469,39 @@ async function main() {
   })
 
   console.log('✓ 已创建文件和大屏设置')
+
+  // 创建轮次（初赛、复赛、决赛）
+  const round1 = await prisma.competitionRound.create({
+    data: { tenantId: defaultTenant.id, competitionId: competition.id, name: '初赛', roundOrder: 1, status: 'FINISHED' },
+  })
+  const round2 = await prisma.competitionRound.create({
+    data: { tenantId: defaultTenant.id, competitionId: competition.id, name: '复赛', roundOrder: 2, status: 'ACTIVE' },
+  })
+  const round3 = await prisma.competitionRound.create({
+    data: { tenantId: defaultTenant.id, competitionId: competition.id, name: '决赛', roundOrder: 3, status: 'PENDING', promotionRule: { type: 'topN', value: 5 } },
+  })
+  // 创建组别
+  const group1 = await prisma.competitionGroup.create({
+    data: { tenantId: defaultTenant.id, competitionId: competition.id, name: '青少年组', description: '18岁以下' },
+  })
+  console.log('✓ 已创建轮次和组别')
+
+  // 开启报名
+  const registrationToken = Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('')
+  await prisma.competition.update({
+    where: { id: competition.id },
+    data: { registrationEnabled: true, registrationToken, registrationFields: ['name', 'team', 'contact'] },
+  })
+  console.log('✓ 已开启公开报名 (token: ' + registrationToken.slice(0, 8) + '...)')
+
+  // 创建示例通知
+  await prisma.notification.createMany({
+    data: [
+      { tenantId: defaultTenant.id, userId: admin.id, type: 'system', title: '系统初始化完成', content: '示例数据已创建完毕' },
+      { tenantId: defaultTenant.id, userId: organizer.id, type: 'promotion', title: '初赛结果已出', content: '5个节目晋级复赛' },
+    ],
+  })
+  console.log('✓ 已创建示例通知')
 
   await Promise.all([
     prisma.auditLog.create({

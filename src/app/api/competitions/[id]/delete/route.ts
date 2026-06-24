@@ -1,25 +1,22 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
 // 真正删除比赛（永久删除）
-export async function DELETE(
+export const DELETE = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
+    const ctx = getTenantContext()!;
     
-    // 检查用户是否已登录且是管理员或组织者
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ORGANIZER')) {
+    // 检查用户是否是管理员或组织者
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN' && ctx.role !== 'ORGANIZER') {
       return NextResponse.json(
         { error: '未授权操作' },
         { status: 403 }
       );
     }
-    
     const { id } = await params;
     
     // 检查ID是否有效的UUID格式
@@ -53,7 +50,7 @@ export async function DELETE(
     }
     
     // 检查是否是管理员或比赛创建者
-    if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && competition.organizerId !== session.user.id) {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN' && competition.organizerId !== ctx.userId) {
       return NextResponse.json(
         { error: '您没有权限删除此比赛' },
         { status: 403 }
@@ -119,8 +116,8 @@ export async function DELETE(
       // 8. 记录删除操作的审计日志
       await tx.auditLog.create({
         data: {
-          userId: session.user.id,
-          tenantId: session.user.tenantId,
+          userId: ctx.userId,
+          tenantId: ctx.tenantId,
           action: 'DELETE_COMPETITION',
           targetId: id,
           details: {
@@ -176,4 +173,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-}
+});

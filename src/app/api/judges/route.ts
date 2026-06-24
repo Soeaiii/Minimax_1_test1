@@ -1,17 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 import bcrypt from 'bcrypt';
 
 // 创建裁判
-export async function POST(request: Request) {
+export const POST = withTenantContext(async (request: Request) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
+    const ctx = getTenantContext()!;
     
     // 检查用户是否已登录且是管理员
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ORGANIZER')) {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN' && ctx.role !== 'ORGANIZER') {
       return NextResponse.json(
         { error: '未授权访问' },
         { status: 401 }
@@ -44,27 +42,15 @@ export async function POST(request: Request) {
     // 加密密码
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // 获取默认租户
-    const defaultTenant = await prisma.tenant.findFirst({
-      where: { name: 'Default' },
-    });
-
-    if (!defaultTenant) {
-      return NextResponse.json(
-        { error: '系统配置错误：未找到默认租户' },
-        { status: 500 }
-      );
-    }
-
     // 创建裁判用户
     const judgeData: any = {
       name,
       email,
       password: hashedPassword,
       role: 'JUDGE',
-      tenantId: defaultTenant.id,
       permissions: ['JUDGE_PROGRAMS'],
       isActive: true,
+      tenantId: ctx.tenantId,
     };
 
     if (bio) judgeData.bio = bio;
@@ -86,8 +72,8 @@ export async function POST(request: Request) {
     // 记录审计日志
     await prisma.auditLog.create({
       data: {
-        userId: session.user.id,
-        tenantId: session.user.tenantId,
+        tenantId: ctx.tenantId,
+        userId: ctx.userId,
         action: 'CREATE_JUDGE',
         targetId: judge.id,
         details: {
@@ -105,16 +91,15 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 // 获取裁判列表
-export async function GET(request: Request) {
+export const GET = withTenantContext(async (request: Request) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
+    const ctx = getTenantContext()!;
     
     // 检查用户是否已登录且是管理员
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ORGANIZER')) {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN' && ctx.role !== 'ORGANIZER') {
       return NextResponse.json(
         { error: '未授权访问' },
         { status: 401 }
@@ -164,4 +149,4 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});

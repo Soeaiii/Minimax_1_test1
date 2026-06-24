@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
 
 interface JudgeScore {
@@ -20,19 +20,17 @@ interface JudgeScore {
   }>;
 }
 
-// 获取大屏幕显示数据
+// 获取大屏幕显示数据（支持 session 和 publicToken 两种鉴权方式）
 export async function GET(
   request: Request,
   context: { params: Promise<{ competitionId: string }> }
 ) {
   try {
-    // @ts-ignore
-    const session = await getServerSession(authOptions);
     const params = await context.params;
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token');
 
-    // 获取比赛信息
+    // 并行获取比赛信息
     const competition = await prisma.competition.findUnique({
       where: { id: params.competitionId },
       select: { id: true, name: true, description: true, status: true, tenantId: true },
@@ -87,11 +85,15 @@ export async function GET(
       });
     }
 
-    // 验证Token：已登录用户（有正确 tenantId）可以跳过 token 验证
-    const isLoggedInUser = session?.user && session.user.tenantId === competition.tenantId;
-    if (displaySettings.publicToken && !isLoggedInUser) {
-      if (!token || token !== displaySettings.publicToken) {
-        return NextResponse.json({ error: '无效的访问Token' }, { status: 401 });
+    // 鉴权：优先检查 session（已登录且同租户用户可跳过 token 验证），否则必须验证 publicToken
+    const session = await getServerSession(authOptions);
+    const isLoggedInUser = session?.user && (session.user as any).tenantId === competition.tenantId;
+
+    if (!isLoggedInUser) {
+      if (displaySettings.publicToken) {
+        if (!token || token !== displaySettings.publicToken) {
+          return NextResponse.json({ error: '无效的访问Token' }, { status: 401 });
+        }
       }
     }
 
@@ -103,7 +105,7 @@ export async function GET(
             select: { id: true, name: true, description: true, order: true, participantPrograms: { include: { participant: { select: { id: true, name: true, team: true } } } }, customFields: true },
           })
         : Promise.resolve(null),
-      prisma.user.findMany({ where: { role: 'JUDGE', tenantId: competition.tenantId }, select: { id: true, name: true, avatar: true } }),
+      prisma.user.findMany({ where: { role: 'JUDGE' }, select: { id: true, name: true, avatar: true } }),
       prisma.program.findMany({
         where: { competitionId: params.competitionId },
         select: { id: true, name: true, order: true, currentStatus: true, participantPrograms: { include: { participant: { select: { id: true, name: true, team: true } } } }, customFields: true },
@@ -172,4 +174,4 @@ export async function GET(
       { status: 500 }
     );
   }
-} 
+}

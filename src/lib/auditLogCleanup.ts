@@ -48,7 +48,6 @@ export async function cleanupAuditLogs(): Promise<void> {
  * 创建审计日志并自动清理
  */
 export async function createAuditLogWithCleanup(data: {
-  tenantId: string;
   userId: string;
   action: string;
   targetId?: string;
@@ -58,7 +57,6 @@ export async function createAuditLogWithCleanup(data: {
     // 创建新的审计日志
     await prisma.auditLog.create({
       data: {
-        tenantId: data.tenantId,
         userId: data.userId,
         action: data.action,
         targetId: data.targetId,

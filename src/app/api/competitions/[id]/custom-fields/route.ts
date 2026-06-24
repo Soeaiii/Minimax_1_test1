@@ -1,18 +1,13 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { withTenantContext, getTenantContext } from "@/lib/tenant-context";
 import { prisma } from "@/lib/prisma";
 
 // 获取比赛的自定义字段定义
-export async function GET(
+export const GET = withTenantContext(async (
   req: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: "未授权" }, { status: 401 });
-    }
 
     const { id } = await params;
     // 获取比赛
@@ -43,20 +38,18 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});
 
 // 更新比赛的自定义字段定义
-export async function PATCH(
+export const PATCH = withTenantContext(async (
   req: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: "未授权" }, { status: 401 });
-    }
+    const ctx = getTenantContext()!;
 
     const { id } = await params;
+
     // 验证比赛存在
     const existingCompetition = await prisma.competition.findUnique({
       where: { id },
@@ -68,9 +61,9 @@ export async function PATCH(
 
     // 验证当前用户是否有权限编辑该比赛
     if (
-      session.user.role !== "ADMIN" &&
-      session.user.role !== "SUPER_ADMIN" &&
-      existingCompetition.organizerId !== session.user.id
+      ctx.role !== "ADMIN" &&
+      ctx.role !== "SUPER_ADMIN" &&
+      existingCompetition.organizerId !== ctx.userId
     ) {
       return NextResponse.json({ error: "无权限编辑此比赛" }, { status: 403 });
     }
@@ -103,4 +96,4 @@ export async function PATCH(
       { status: 500 }
     );
   }
-} 
+});

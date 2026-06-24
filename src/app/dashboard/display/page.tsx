@@ -64,7 +64,7 @@ export default function DisplayManagePage() {
       return;
     }
 
-    if (status === 'authenticated' && session?.user?.role !== 'ADMIN' && session?.user?.role !== 'ORGANIZER') {
+    if (status === 'authenticated' && session?.user?.role !== 'SUPER_ADMIN' && session?.user?.role !== 'ADMIN' && session?.user?.role !== 'ORGANIZER') {
       router.push('/unauthorized');
       return;
     }

@@ -1,10 +1,10 @@
 /**
- * 租户守卫工具库
- * 提供 API 级别的租户隔离、配额校验、权限检查
+ * 租户守卫工具库 - 用于 ADMIN/SUPER_ADMIN 路由的认证和权限检查。
+ * 常规 API 路由应使用 withTenantContext (src/lib/tenant-context.ts) 进行租户隔离。
  */
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { prismaRaw } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 
 // ── 类型 ──
@@ -19,13 +19,12 @@ export interface AuthSession {
   };
 }
 
-// ── 获取认证 session（带类型） ──
+// ── 获取认证 session（带类型）─
 export async function getAuthSession(): Promise<AuthSession | null> {
-  // @ts-ignore
   return getServerSession(authOptions) as Promise<AuthSession | null>;
 }
 
-// ── 获取当前活跃的 tenantId ──
+// ── 获取当前活跃的 tenantId ─
 export async function getActiveTenantId(): Promise<{ tenantId: string; session: AuthSession } | { error: NextResponse }> {
   const session = await getAuthSession();
   if (!session?.user) {
@@ -34,13 +33,13 @@ export async function getActiveTenantId(): Promise<{ tenantId: string; session: 
   return { tenantId: session.user.tenantId, session };
 }
 
-// ── 租户守卫：校验租户存在且活跃 ──
+// ── 租户守卫：校验租户存在且活跃 ─
 export async function requireActiveTenant(tenantId?: string) {
   const tid = tenantId || (await getActiveTenantId());
   if ('error' in tid) return tid;
 
   const actualTenantId = 'tenantId' in tid ? tid.tenantId : tenantId!;
-  const tenant = await prisma.tenant.findUnique({ where: { id: actualTenantId } });
+  const tenant = await prismaRaw.tenant.findUnique({ where: { id: actualTenantId } });
 
   if (!tenant) {
     return { error: NextResponse.json({ error: '租户不存在' }, { status: 404 }) };
@@ -55,7 +54,7 @@ export async function requireActiveTenant(tenantId?: string) {
   return { tenant, session: 'session' in tid ? tid.session : undefined };
 }
 
-// ── 权限守卫 ──
+// ── 权限守卫 ─
 export function requireRole(session: AuthSession, ...roles: string[]) {
   if (!roles.includes(session.user.role)) {
     return { error: NextResponse.json({ error: '权限不足' }, { status: 403 }) };
@@ -63,41 +62,15 @@ export function requireRole(session: AuthSession, ...roles: string[]) {
   return {};
 }
 
-// ── 配额校验 ──
-export async function checkQuota(tenantId: string, resource: 'users' | 'competitions') {
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    select: { maxUsers: true, maxCompetitions: true, _count: { select: { users: true, competitions: true } } },
-  });
-  if (!tenant) return { error: NextResponse.json({ error: '租户不存在' }, { status: 404 }) };
-
-  if (resource === 'users' && tenant._count.users >= tenant.maxUsers) {
-    return { error: NextResponse.json({ error: `用户数量已达上限 (${tenant.maxUsers})，请升级套餐` }, { status: 403 }) };
-  }
-  if (resource === 'competitions' && tenant._count.competitions >= tenant.maxCompetitions) {
-    return { error: NextResponse.json({ error: `比赛数量已达上限 (${tenant.maxCompetitions})，请升级套餐` }, { status: 403 }) };
-  }
-
-  return { ok: true, tenant };
-}
-
-// ── 审计日志快捷方法 ──
+// ── 审计日志快捷方法 ─
 export async function auditLog(
   tenantId: string,
   userId: string,
   action: string,
   targetId?: string,
-  details?: Record<string, any>
+  details?: Record<string, unknown>,
 ) {
-  return prisma.auditLog.create({
+  return prismaRaw.auditLog.create({
     data: { tenantId, userId, action, targetId, details },
   });
 }
-
-// ── 套餐配额默认值 ──
-export const PLAN_QUOTAS = {
-  FREE:       { maxUsers: 10,   maxCompetitions: 3 },
-  BASIC:      { maxUsers: 100,  maxCompetitions: 10 },
-  PRO:        { maxUsers: 500,  maxCompetitions: 50 },
-  ENTERPRISE: { maxUsers: 5000, maxCompetitions: 999 },
-} as const;

@@ -1,22 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { UserRole, CompetitionStatus } from '@prisma/client'
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context'
+import { CompetitionStatus } from '@prisma/client'
 
-export async function DELETE(
+export const DELETE = withTenantContext(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      )
-    }
+    const ctx = getTenantContext()!;
 
     const resolvedParams = await params
     const programId = resolvedParams.id
@@ -39,9 +31,9 @@ export async function DELETE(
 
     // 权限检查：只有管理员和比赛组织者可以删除节目
     if (
-      session.user.role !== UserRole.ADMIN &&
-      session.user.role !== 'SUPER_ADMIN' &&
-      program.competition.organizerId !== session.user.id
+      ctx.role !== 'ADMIN' &&
+      ctx.role !== 'SUPER_ADMIN' &&
+      program.competition.organizerId !== ctx.userId
     ) {
       return NextResponse.json(
         { error: '权限不足' },
@@ -73,9 +65,8 @@ export async function DELETE(
     // 记录审计日志
     await prisma.auditLog.create({
       data: {
-        tenantId: session.user.tenantId,
         action: 'DELETE_PROGRAM',
-        userId: session.user.id,
+        userId: ctx.userId,
         targetId: programId,
         details: {
           programName: program.name,
@@ -96,4 +87,4 @@ export async function DELETE(
       { status: 500 }
     )
   }
-}
+})

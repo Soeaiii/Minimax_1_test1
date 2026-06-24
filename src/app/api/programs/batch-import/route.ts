@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
 interface ImportRow {
   name: string;
@@ -34,15 +33,15 @@ interface ParticipantToCreate {
   importRow: number;
 }
 
-export async function POST(request: NextRequest) {
+interface ImportFailure {
+  row: number;
+  data: ProcessedRow;
+  error: string;
+}
+
+export const POST = withTenantContext(async (request: NextRequest) => {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     const body = await request.json();
     const { 
@@ -71,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     // 验证比赛是否存在且属于同一租户
     const competition = await prisma.competition.findUnique({
-      where: { id: competitionId, tenantId: session.user.tenantId }
+      where: { id: competitionId }
     });
 
     if (!competition) {
@@ -81,8 +80,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const imported: any[] = [];
-    const failed: any[] = [];
+    const imported: Record<string, unknown>[] = [];
+    const failed: ImportFailure[] = [];
 
     // 获取当前比赛的最大顺序号
     const lastProgram = await prisma.program.findFirst({
@@ -204,7 +203,6 @@ export async function POST(request: NextRequest) {
         // 批量创建选手
         await tx.participant.createMany({
           data: participantsToCreate.map(p => ({
-            tenantId: session.user.tenantId,
             name: p.name,
             bio: p.bio,
             programIds: [], // 先创建空的programIds，后面再更新
@@ -233,8 +231,7 @@ export async function POST(request: NextRequest) {
           .map(name => participantMap.get(name)?.id)
           .filter(Boolean) as string[];
 
-        const programData: any = {
-          tenantId: session.user.tenantId,
+        const programData: Record<string, unknown> = {
           name: row.name,
           description: row.description,
           order: row.order,
@@ -327,9 +324,8 @@ export async function POST(request: NextRequest) {
       // 11. 批量创建节目审计日志
       await tx.auditLog.createMany({
         data: createdPrograms.map((program, index) => ({
-          // @ts-ignore
-          tenantId: session.user.tenantId,
-          userId: session.user.id,
+          userId: ctx.userId,
+          tenantId: ctx.tenantId,
           action: 'BATCH_IMPORT_PROGRAM',
           targetId: program.id,
           details: {
@@ -352,9 +348,7 @@ export async function POST(request: NextRequest) {
     // 记录批量导入操作
     await prisma.auditLog.create({
       data: {
-        // @ts-ignore
-        tenantId: session.user.tenantId,
-        userId: session.user.id,
+        userId: ctx.userId,
         action: 'BATCH_IMPORT_COMPLETE',
         targetId: 'programs',
         details: {
@@ -387,4 +381,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
-import { UserRole } from '@/lib/types';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 import os from 'os';
 
 // 系统状态接口定义
@@ -74,20 +72,12 @@ interface DatabaseStatus {
 }
 
 // 获取系统状态
-export async function GET(request: Request) {
+export const GET = withTenantContext(async (request: Request) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     // 只有管理员可以查看系统状态
-    if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN') {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '权限不足' },
         { status: 403 }
@@ -150,7 +140,7 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 // 获取性能指标
 async function getPerformanceMetrics(): Promise<PerformanceMetrics> {
@@ -388,20 +378,12 @@ function calculateOverallStatus(
 }
 
 // 系统健康检查端点
-export async function POST(request: Request) {
+export const POST = withTenantContext(async (request: Request) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     // 只有管理员可以触发健康检查
-    if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN') {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '权限不足' },
         { status: 403 }
@@ -424,8 +406,7 @@ export async function POST(request: Request) {
     try {
       await prisma.auditLog.create({
         data: {
-          tenantId: session.user.tenantId,
-          userId: session.user.id,
+          userId: ctx.userId,
           action: 'SYSTEM_HEALTH_CHECK',
           targetId: 'system',
           details: {
@@ -451,4 +432,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

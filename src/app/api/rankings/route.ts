@@ -1,20 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
 // 获取排名
-export async function GET(request: Request) {
+export const GET = withTenantContext(async (request: Request) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
 
     const { searchParams } = new URL(request.url);
     const competitionId = searchParams.get('competitionId');
@@ -28,7 +18,7 @@ export async function GET(request: Request) {
 
     // 验证比赛属于同一租户
     const competition = await prisma.competition.findUnique({
-      where: { id: competitionId, tenantId: session.user.tenantId },
+      where: { id: competitionId },
     });
 
     if (!competition) {
@@ -56,20 +46,13 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 // 手动更新排名
-export async function POST(request: Request) {
+// 手动更新排名
+export const POST = withTenantContext(async (request: Request) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     const body = await request.json();
     
@@ -87,7 +70,7 @@ export async function POST(request: Request) {
     
     // 获取比赛信息
     const competition = await prisma.competition.findUnique({
-      where: { id: competitionId, tenantId: session.user.tenantId },
+      where: { id: competitionId },
       include: {
         participantPrograms: {
           where: { currentStatus: 'COMPLETED' },
@@ -155,7 +138,6 @@ export async function POST(request: Request) {
               updateType: 'AUTO',
               competitionId,
               programId: score.programId,
-              tenantId: session.user.tenantId,
             },
           })
         )
@@ -164,8 +146,8 @@ export async function POST(request: Request) {
       // 记录审计日志
       await tx.auditLog.create({
         data: {
-          tenantId: session.user.tenantId,
-          userId,
+          tenantId: ctx.tenantId,
+          userId: ctx.userId,
           action: 'UPDATE_RANKINGS',
           targetId: competitionId,
           details: { rankings },
@@ -183,4 +165,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

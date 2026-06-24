@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext } from '@/lib/tenant-context';
 
 // 节目状态更新API - 支持PATCH和PUT方法
 async function updateProgramStatus(
@@ -9,16 +8,6 @@ async function updateProgramStatus(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // @ts-ignore
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
-
     const { id } = await params;
     const body = await request.json();
     const { currentStatus } = body;
@@ -72,7 +61,7 @@ async function updateProgramStatus(
       message: `节目 "${existingProgram.name}" 状态已更新为 "${currentStatus}"`,
       program: result,
     });
-    
+
   } catch (error) {
     console.error('Program status update error:', error);
     return NextResponse.json(
@@ -86,17 +75,17 @@ async function updateProgramStatus(
 }
 
 // 支持PATCH方法
-export async function PATCH(
+export const PATCH = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   return updateProgramStatus(request, { params });
-}
+});
 
 // 支持PUT方法
-export async function PUT(
+export const PUT = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   return updateProgramStatus(request, { params });
-} 
+});

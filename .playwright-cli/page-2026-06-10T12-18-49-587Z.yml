@@ -1,0 +1,202 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e5]:
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - link "关于我们" [ref=e9] [cursor=pointer]:
+            - /url: /our?nav=our
+          - link "网站声明" [ref=e10] [cursor=pointer]:
+            - /url: /our?nav=copyright
+          - link "联系方式" [ref=e11] [cursor=pointer]:
+            - /url: /our?nav=contact
+          - link "用户反馈" [ref=e12] [cursor=pointer]:
+            - /url: /our?nav=feedBack
+          - link "网站地图" [ref=e13] [cursor=pointer]:
+            - /url: /our?nav=map
+          - link "帮助" [ref=e14] [cursor=pointer]:
+            - /url: /our?nav=tips
+        - generic [ref=e15] [cursor=pointer]: 注册|登录
+      - generic [ref=e16]:
+        - link [ref=e24] [cursor=pointer]:
+          - /url: https://www.cls.cn/detail/2385508
+        - generic [ref=e26]:
+          - link [ref=e27] [cursor=pointer]:
+            - /url: /
+            - heading [level=1] [ref=e28]:
+              - generic "财联社" [ref=e29]
+          - generic [ref=e30]:
+            - link "首页" [ref=e31] [cursor=pointer]:
+              - /url: /
+              - heading "首页" [level=2] [ref=e32]
+            - link "电报" [ref=e33] [cursor=pointer]:
+              - /url: /telegraph
+              - heading "电报" [level=2] [ref=e34]
+            - link "话题" [ref=e35] [cursor=pointer]:
+              - /url: /subject
+              - heading "话题" [level=2] [ref=e36]
+            - link "盯盘" [ref=e37] [cursor=pointer]:
+              - /url: /finance
+              - heading "盯盘" [level=2] [ref=e38]
+            - link "VIP" [ref=e39] [cursor=pointer]:
+              - /url: /vip
+              - heading "VIP" [level=2] [ref=e40]
+            - link "FM" [ref=e41] [cursor=pointer]:
+              - /url: /fm
+              - heading "FM" [level=2] [ref=e42]
+            - link "投研" [ref=e43] [cursor=pointer]:
+              - /url: /investpro
+              - heading "投研" [level=2] [ref=e44]
+            - link "下载" [ref=e45] [cursor=pointer]:
+              - /url: /download
+              - heading "下载" [level=2] [ref=e46]
+          - generic [ref=e47]:
+            - textbox "请输入要搜索的信息" [ref=e48]
+            - emphasis [ref=e50] [cursor=pointer]: 
+    - generic [ref=e51]:
+      - generic [ref=e52]:
+        - heading "全部" [level=3] [ref=e53]:
+          - generic [ref=e54] [cursor=pointer]: 全部
+        - heading "加红" [level=3] [ref=e55]:
+          - generic [ref=e56] [cursor=pointer]: 加红
+        - heading "公司" [level=3] [ref=e57]:
+          - generic [ref=e58] [cursor=pointer]: 公司
+        - heading "看盘" [level=3] [ref=e59]:
+          - generic [ref=e60] [cursor=pointer]: 看盘
+        - heading "港美股" [level=3] [ref=e61]:
+          - generic [ref=e62] [cursor=pointer]: 港美股
+        - heading "基金" [level=3] [ref=e63]:
+          - generic [ref=e64] [cursor=pointer]: 基金
+        - heading "提醒" [level=3] [ref=e65]:
+          - generic [ref=e66] [cursor=pointer]: 提醒
+      - generic [ref=e67]:
+        - generic [ref=e68]:
+          - generic [ref=e69]:
+            - generic [ref=e70]:
+              - generic [ref=e71]: 2026.06.10 星期三 20:18:49
+              - generic [ref=e72]:
+                - generic [ref=e73]:
+                  - generic [ref=e76] [cursor=pointer]: 桌面通知
+                  - img "桌面通知" [ref=e77] [cursor=pointer]
+                - generic [ref=e80] [cursor=pointer]: 声音提醒
+                - generic [ref=e83] [cursor=pointer]: 语音电报
+            - generic [ref=e84]:
+              - generic [ref=e85]: 电报持续更新中
+              - generic [ref=e89]:
+                - generic [ref=e91] [cursor=pointer]:
+                  - img [ref=e93]
+                  - generic [ref=e97]: 日期
+                - generic [ref=e98]:
+                  - textbox "请输入要搜索的电报" [ref=e99]
+                  - generic [ref=e100] [cursor=pointer]: 
+          - generic [ref=e101] [cursor=pointer]: 加载更多
+        - generic [ref=e102]:
+          - img "财联社App" [ref=e103]
+          - generic [ref=e104]:
+            - generic [ref=e105]:
+              - generic [ref=e106]:
+                - link "上证指数" [ref=e108] [cursor=pointer]:
+                  - /url: /ind?code=sh000001
+                - generic [ref=e109]: "-.--"
+                - generic [ref=e110]: "-.--(-.--%)"
+              - generic [ref=e111]:
+                - link "深证成指" [ref=e113] [cursor=pointer]:
+                  - /url: /ind?code=sz399001
+                - generic [ref=e114]: "-.--"
+                - generic [ref=e115]: "-.--(-.--%)"
+              - generic [ref=e116]:
+                - link "创业板指" [ref=e118] [cursor=pointer]:
+                  - /url: /ind?code=sz399006
+                - generic [ref=e119]: "-.--"
+                - generic [ref=e120]: "-.--(-.--%)"
+              - generic [ref=e121]:
+                - link "中证500" [ref=e123] [cursor=pointer]:
+                  - /url: /ind?code=sh000905
+                - generic [ref=e124]: "-.--"
+                - generic [ref=e125]: "-.--(-.--%)"
+            - generic [ref=e126]:
+              - generic [ref=e127]:
+                - generic [ref=e128] [cursor=pointer]: 行业板块
+                - generic [ref=e129] [cursor=pointer]: 概念板块
+                - generic [ref=e130] [cursor=pointer]: 地域板块
+              - generic [ref=e131]:
+                - generic [ref=e132]: 板块名称
+                - generic [ref=e133] [cursor=pointer]:
+                  - text: 涨跌幅
+                  - img "排序" [ref=e134]
+                - generic [ref=e135] [cursor=pointer]:
+                  - text: 资金流入
+                  - img "排序" [ref=e136]
+              - generic [ref=e137]:
+                - generic [ref=e138]: "--"
+                - generic [ref=e139]: "--"
+                - generic [ref=e140]: "--"
+            - generic [ref=e141]:
+              - generic [ref=e142]:
+                - generic [ref=e143] [cursor=pointer]: 个股涨幅榜
+                - generic [ref=e144] [cursor=pointer]: 个股跌幅榜
+              - generic [ref=e145]:
+                - generic [ref=e146]: 股票名称
+                - generic [ref=e147] [cursor=pointer]:
+                  - text: 涨跌幅
+                  - img "排序" [ref=e148]
+                - generic [ref=e149] [cursor=pointer]:
+                  - text: 涨跌价
+                  - img "排序" [ref=e150]
+              - generic [ref=e151]:
+                - generic [ref=e152]: "--"
+                - generic [ref=e153]: "--"
+                - generic [ref=e154]: "--"
+          - link [ref=e156] [cursor=pointer]:
+            - /url: /detail/2383899
+    - generic [ref=e157]:
+      - img [ref=e159] [cursor=pointer]
+      - img [ref=e161] [cursor=pointer]
+      - img [ref=e163] [cursor=pointer]
+      - img [ref=e165] [cursor=pointer]
+      - img [ref=e168] [cursor=pointer]
+    - generic [ref=e170]:
+      - generic [ref=e171]:
+        - generic [ref=e172]:
+          - link "关于我们" [ref=e173] [cursor=pointer]:
+            - /url: /our?nav=our
+          - text: "|"
+        - generic [ref=e174]:
+          - link "网站声明" [ref=e175] [cursor=pointer]:
+            - /url: /our?nav=copyright
+          - text: "|"
+        - generic [ref=e176]:
+          - link "联系方式" [ref=e177] [cursor=pointer]:
+            - /url: /our?nav=contact
+          - text: "|"
+        - generic [ref=e178]:
+          - link "用户反馈" [ref=e179] [cursor=pointer]:
+            - /url: /our?nav=feedBack
+          - text: "|"
+        - generic [ref=e180]:
+          - link "网站地图" [ref=e181] [cursor=pointer]:
+            - /url: /our?nav=map
+          - text: "|"
+        - generic [ref=e182]:
+          - link "友情链接" [ref=e183] [cursor=pointer]:
+            - /url: /our?nav=friend
+          - text: "|"
+        - text: 举报电话：021-54679377转617举报邮箱：editor@cls.cn
+        - link "财联社举报" [ref=e184] [cursor=pointer]:
+          - /url: http://www.shjbzx.cn
+          - img "财联社举报" [ref=e185]
+      - generic [ref=e186]:
+        - link "财联社" [ref=e187] [cursor=pointer]:
+          - /url: /
+        - text: ©2018-2026
+        - generic [ref=e188]:
+          - text: 上海界面财联社科技股份有限公司 版权所有
+          - link:
+            - /url: /map.xml
+        - link "沪ICP备14040942号-9" [ref=e189] [cursor=pointer]:
+          - /url: http://beian.miit.gov.cn
+        - link "沪公网安备31010402006047号" [ref=e190] [cursor=pointer]:
+          - /url: http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=31010402006047
+        - text: 互联网新闻信息服务许可证：31120170007
+        - link "沪金信备 [2021] 2号" [ref=e191] [cursor=pointer]:
+          - /url: https://fisbaobei.ifcert.cn/Home/homeIindex
+  - alert [ref=e192]

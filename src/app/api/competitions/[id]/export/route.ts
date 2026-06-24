@@ -1,23 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 import * as XLSX from 'xlsx';
 
-export async function GET(
+export const GET = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     const { id: competitionId } = await params;
     const { searchParams } = new URL(request.url);
@@ -44,13 +35,12 @@ export async function GET(
     }
 
     // 检查权限
-    if (session.user.role !== 'ADMIN' && competition.organizerId !== session.user.id) {
+    if (ctx.role !== 'ADMIN' && competition.organizerId !== ctx.userId) {
       return NextResponse.json(
         { error: '权限不足' },
         { status: 403 }
       );
     }
-
     if (type === 'scores') {
       return await exportScoresData(competitionId, format, competition);
     } else if (type === 'rankings') {
@@ -70,7 +60,7 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});
 
 // 导出评分数据
 async function exportScoresData(competitionId: string, format: string, competition: any) {

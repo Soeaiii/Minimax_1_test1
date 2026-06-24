@@ -1,0 +1,355 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: comprehensive.spec.js >> API Endpoints >> GET /api/programs returns < 400
+- Location: tests/comprehensive.spec.js:113:5
+
+# Error details
+
+```
+Error: Channel closed
+```
+
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "比赛管理系统" [ref=e5] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e6]
+        - generic [ref=e12]: 比赛管理系统
+      - navigation [ref=e13]:
+        - link "仪表盘" [ref=e15] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e16]
+          - generic [ref=e21]: 仪表盘
+        - link "比赛管理" [ref=e23] [cursor=pointer]:
+          - /url: /dashboard/competitions
+          - img [ref=e24]
+          - generic [ref=e30]: 比赛管理
+        - link "节目管理" [ref=e32] [cursor=pointer]:
+          - /url: /dashboard/programs
+          - img [ref=e33]
+          - generic [ref=e35]: 节目管理
+        - link "选手管理" [ref=e37] [cursor=pointer]:
+          - /url: /dashboard/participants
+          - img [ref=e38]
+          - generic [ref=e43]: 选手管理
+        - link "裁判管理" [ref=e45] [cursor=pointer]:
+          - /url: /dashboard/judges
+          - img [ref=e46]
+          - generic [ref=e50]: 裁判管理
+        - link "大屏幕管理" [ref=e52] [cursor=pointer]:
+          - /url: /dashboard/display
+          - img [ref=e53]
+          - generic [ref=e55]: 大屏幕管理
+        - link "审计日志" [ref=e57] [cursor=pointer]:
+          - /url: /dashboard/audit-logs
+          - img [ref=e58]
+          - generic [ref=e61]: 审计日志
+        - link "文件管理" [ref=e63] [cursor=pointer]:
+          - /url: /dashboard/files
+          - img [ref=e64]
+          - generic [ref=e68]: 文件管理
+        - link "权限管理" [ref=e70] [cursor=pointer]:
+          - /url: /dashboard/permissions
+          - img [ref=e71]
+          - generic [ref=e73]: 权限管理
+    - generic [ref=e74]:
+      - banner [ref=e75]:
+        - button "系" [ref=e77]:
+          - generic [ref=e79]: 系
+      - main [ref=e80]:
+        - generic [ref=e81]:
+          - generic [ref=e84]:
+            - generic [ref=e86]:
+              - img [ref=e88]
+              - generic [ref=e91]:
+                - heading "晚上好，系统管理员!" [level=1] [ref=e92]
+                - paragraph [ref=e93]: 欢迎回到比赛管理系统
+            - generic [ref=e94]:
+              - generic [ref=e95]: 管理员
+              - generic [ref=e96]:
+                - img [ref=e97]
+                - generic [ref=e99]: 2026/6/7
+              - generic [ref=e100]:
+                - img [ref=e101]
+                - generic [ref=e104]: 20:31
+          - generic [ref=e105]:
+            - generic [ref=e106]:
+              - generic [ref=e107]:
+                - generic [ref=e108]: 总比赛数
+                - img [ref=e109]
+              - generic [ref=e115]:
+                - generic [ref=e116]: "2"
+                - paragraph [ref=e117]: "活跃比赛: 1"
+                - generic [ref=e119]: "活跃: 1"
+            - generic [ref=e120]:
+              - generic [ref=e121]:
+                - generic [ref=e122]: 节目总数
+                - img [ref=e123]
+              - generic [ref=e125]:
+                - generic [ref=e126]: "5"
+                - paragraph [ref=e127]: 节目状态分布
+                - generic [ref=e128]:
+                  - generic [ref=e129]: "等待中: 1"
+                  - generic [ref=e130]: "表演中: 1"
+                  - generic [ref=e131]: "已完成: 3"
+            - generic [ref=e132]:
+              - generic [ref=e133]:
+                - generic [ref=e134]: 选手数量
+                - img [ref=e135]
+              - generic [ref=e140]:
+                - generic [ref=e141]: "6"
+                - paragraph [ref=e142]: "团队: 6"
+                - generic [ref=e144]:
+                  - generic [ref=e145]: 团队占比
+                  - generic [ref=e146]: 6/6
+            - generic [ref=e149]:
+              - generic [ref=e150]:
+                - generic [ref=e151]: 日志数量
+                - img [ref=e152]
+              - generic [ref=e155]:
+                - generic [ref=e156]: "6"
+                - paragraph [ref=e157]: "今日: 3"
+                - generic [ref=e158]:
+                  - generic [ref=e159]: +3%
+                  - generic [ref=e160]: 今日新增
+          - generic [ref=e161]:
+            - generic [ref=e162]:
+              - generic [ref=e163]:
+                - generic [ref=e164]:
+                  - img [ref=e165]
+                  - text: 节目状态分布
+                - generic [ref=e167]: 所有节目的状态分布情况
+              - generic [ref=e169]:
+                - generic [ref=e170]:
+                  - generic [ref=e171]: "5"
+                  - paragraph [ref=e172]: 总节目数
+                - generic [ref=e173]:
+                  - generic [ref=e175]:
+                    - generic [ref=e176]: 等待中
+                    - generic [ref=e178]: 1 (20%)
+                  - generic [ref=e182]:
+                    - generic [ref=e183]: 表演中
+                    - generic [ref=e185]: 1 (20%)
+                  - generic [ref=e189]:
+                    - generic [ref=e190]: 已完成
+                    - generic [ref=e192]: 3 (60%)
+            - generic [ref=e195]:
+              - generic [ref=e196]:
+                - generic [ref=e197]:
+                  - img [ref=e198]
+                  - text: 系统状态
+                - generic [ref=e201]: 系统健康状况和服务状态
+              - generic [ref=e203]:
+                - generic [ref=e204]:
+                  - generic [ref=e205]:
+                    - img [ref=e206]
+                    - generic [ref=e209]: 系统健康
+                  - generic [ref=e210]: 良好
+                - generic [ref=e211]:
+                  - heading "服务状态" [level=4] [ref=e212]
+                  - generic [ref=e213]:
+                    - generic [ref=e214]:
+                      - generic [ref=e215]:
+                        - img [ref=e216]
+                        - generic [ref=e220]: 数据库连接
+                      - generic [ref=e221]: 正常
+                    - generic [ref=e222]:
+                      - generic [ref=e223]:
+                        - img [ref=e224]
+                        - generic [ref=e226]: 认证服务
+                      - generic [ref=e227]: 正常
+                    - generic [ref=e228]:
+                      - generic [ref=e229]:
+                        - img [ref=e230]
+                        - generic [ref=e233]: 应用服务
+                      - generic [ref=e234]: 正常
+                - generic [ref=e235]:
+                  - heading "数据概览" [level=4] [ref=e236]
+                  - generic [ref=e237]:
+                    - generic [ref=e238]:
+                      - generic [ref=e239]: "2"
+                      - generic [ref=e240]: 比赛总数
+                    - generic [ref=e241]:
+                      - generic [ref=e242]: "5"
+                      - generic [ref=e243]: 节目总数
+                    - generic [ref=e244]:
+                      - generic [ref=e245]: "6"
+                      - generic [ref=e246]: 选手总数
+                    - generic [ref=e247]:
+                      - generic [ref=e248]: "3"
+                      - generic [ref=e249]: 今日操作
+            - generic [ref=e250]:
+              - generic [ref=e251]:
+                - generic [ref=e252]:
+                  - generic [ref=e253]:
+                    - img [ref=e254]
+                    - text: 快速操作
+                  - generic [ref=e255]: 常用功能的快捷入口
+                - generic [ref=e257]:
+                  - link "创建比赛 创建新的比赛活动" [ref=e258] [cursor=pointer]:
+                    - /url: /dashboard/competitions/new
+                    - generic [ref=e261]:
+                      - img [ref=e263]
+                      - generic [ref=e269]:
+                        - heading "创建比赛" [level=3] [ref=e270]
+                        - paragraph [ref=e271]: 创建新的比赛活动
+                  - link "添加节目 为比赛添加新节目" [ref=e272] [cursor=pointer]:
+                    - /url: /dashboard/programs/new
+                    - generic [ref=e275]:
+                      - img [ref=e277]
+                      - generic [ref=e279]:
+                        - heading "添加节目" [level=3] [ref=e280]
+                        - paragraph [ref=e281]: 为比赛添加新节目
+                  - link "管理选手 查看和管理选手信息" [ref=e282] [cursor=pointer]:
+                    - /url: /dashboard/participants
+                    - generic [ref=e285]:
+                      - img [ref=e287]
+                      - generic [ref=e292]:
+                        - heading "管理选手" [level=3] [ref=e293]
+                        - paragraph [ref=e294]: 查看和管理选手信息
+                  - link "查看日志 查看系统操作记录" [ref=e295] [cursor=pointer]:
+                    - /url: /dashboard/audit-logs
+                    - generic [ref=e298]:
+                      - img [ref=e300]
+                      - generic [ref=e303]:
+                        - heading "查看日志" [level=3] [ref=e304]
+                        - paragraph [ref=e305]: 查看系统操作记录
+              - generic [ref=e306]:
+                - generic [ref=e307]:
+                  - generic [ref=e308]:
+                    - img [ref=e309]
+                    - text: 系统维护
+                  - generic [ref=e312]: 系统优化和维护工具
+                - generic [ref=e313]:
+                  - generic [ref=e315]:
+                    - generic [ref=e316]:
+                      - generic [ref=e317]:
+                        - img [ref=e318]
+                        - heading "修复选手关联关系" [level=4] [ref=e323]
+                      - paragraph [ref=e324]: 如果发现选手参与的节目没有正确显示，请执行此修复操作
+                    - button "执行修复" [ref=e325]:
+                      - img
+                      - text: 执行修复
+                  - generic [ref=e327]:
+                    - generic [ref=e328]:
+                      - heading "修复重复ID" [level=4] [ref=e329]
+                      - paragraph [ref=e330]: 清理参与者和节目中的重复关联ID
+                    - button "修复重复ID" [ref=e331]:
+                      - img
+                      - text: 修复重复ID
+                  - generic [ref=e332]:
+                    - generic [ref=e333]:
+                      - heading "清理审计日志" [level=4] [ref=e334]
+                      - paragraph [ref=e335]: 删除30天前的审计日志记录
+                    - button "清理日志" [ref=e336]:
+                      - img
+                      - text: 清理日志
+                  - generic [ref=e337]:
+                    - heading "系统状态" [level=4] [ref=e338]
+                    - generic [ref=e339]:
+                      - generic [ref=e340]:
+                        - generic [ref=e341]: 数据库连接
+                        - generic [ref=e342]: 正常
+                      - generic [ref=e343]:
+                        - generic [ref=e344]: 查询优化
+                        - generic [ref=e345]: 已启用
+          - generic [ref=e346]:
+            - generic [ref=e347]:
+              - generic [ref=e348]:
+                - generic [ref=e349]:
+                  - img [ref=e350]
+                  - text: 最近的比赛
+                - generic [ref=e356]: 显示最近创建或更新的比赛
+              - generic [ref=e358]:
+                - generic [ref=e359]:
+                  - img [ref=e362]
+                  - generic [ref=e368]:
+                    - generic [ref=e369]:
+                      - paragraph [ref=e370]: E2E测试比赛
+                      - generic [ref=e371]: 待开始
+                    - generic [ref=e372]:
+                      - img [ref=e373]
+                      - generic [ref=e376]: 系统管理员
+                      - generic [ref=e377]: •
+                      - generic [ref=e378]: 0 个节目
+                      - generic [ref=e379]: •
+                      - img [ref=e380]
+                      - generic [ref=e383]: 大约 5 小时前
+                - generic [ref=e384]:
+                  - img [ref=e387]
+                  - generic [ref=e393]:
+                    - generic [ref=e394]:
+                      - paragraph [ref=e395]: 2024年度艺术节才艺大赛
+                      - generic [ref=e396]: 进行中
+                    - generic [ref=e397]:
+                      - img [ref=e398]
+                      - generic [ref=e401]: 比赛组织者
+                      - generic [ref=e402]: •
+                      - generic [ref=e403]: 5 个节目
+                      - generic [ref=e404]: •
+                      - img [ref=e405]
+                      - generic [ref=e408]: 9 天前
+            - generic [ref=e409]:
+              - generic [ref=e410]:
+                - generic [ref=e411]:
+                  - img [ref=e412]
+                  - text: 系统活动
+                - generic [ref=e414]: 最近的系统活动记录
+              - generic [ref=e416]:
+                - generic [ref=e417]:
+                  - generic [ref=e419]: 系
+                  - generic [ref=e420]:
+                    - paragraph [ref=e421]:
+                      - text: 系统管理员
+                      - generic [ref=e422]: CREATE_JUDGE
+                    - paragraph [ref=e423]: 大约 5 小时前
+                - generic [ref=e424]:
+                  - generic [ref=e426]: 系
+                  - generic [ref=e427]:
+                    - paragraph [ref=e428]:
+                      - text: 系统管理员
+                      - generic [ref=e429]: 创建
+                    - paragraph [ref=e430]: 大约 5 小时前
+                - generic [ref=e431]:
+                  - generic [ref=e433]: 系
+                  - generic [ref=e434]:
+                    - paragraph [ref=e435]:
+                      - text: 系统管理员
+                      - generic [ref=e436]: 创建比赛
+                    - paragraph [ref=e437]: 大约 5 小时前
+                - generic [ref=e438]:
+                  - generic [ref=e440]: 系
+                  - generic [ref=e441]:
+                    - paragraph [ref=e442]:
+                      - text: 系统管理员
+                      - generic [ref=e443]: 创建比赛
+                    - paragraph [ref=e444]: 9 天前
+                - generic [ref=e445]:
+                  - generic [ref=e447]: 比
+                  - generic [ref=e448]:
+                    - paragraph [ref=e449]:
+                      - text: 比赛组织者
+                      - generic [ref=e450]: 创建节目
+                    - paragraph [ref=e451]: 9 天前
+                - generic [ref=e452]:
+                  - generic [ref=e454]: 评
+                  - generic [ref=e455]:
+                    - paragraph [ref=e456]:
+                      - text: 评委张三
+                      - generic [ref=e457]: 提交评分
+                    - paragraph [ref=e458]: 9 天前
+  - region "Notifications alt+T"
+  - alert [ref=e459]
+  - button "Open Next.js Dev Tools" [ref=e465] [cursor=pointer]:
+    - img [ref=e466]
+```

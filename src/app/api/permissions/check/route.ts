@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getToken } from 'next-auth/jwt'
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context'
 import { PermissionChecker, UserContext } from '@/middleware/permission'
 import { hasPermission } from '@/lib/permissions'
 
-export async function GET(request: NextRequest) {
+export const GET = withTenantContext(async (request: NextRequest) => {
   try {
+    const ctx = getTenantContext()!
+
     const { searchParams } = new URL(request.url)
     const resource = searchParams.get('resource')
     const action = searchParams.get('action')
@@ -16,19 +18,11 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const token = await getToken({ req: request })
-    if (!token) {
-      return NextResponse.json(
-        { allowed: false, reason: '未登录' },
-        { status: 401 }
-      )
-    }
-
     const user: UserContext = {
-      id: token.sub as string,
-      role: token.role as any,
-      tenantId: token.tenantId as string,
-      permissions: token.permissions as string[] || []
+      id: ctx.userId,
+      role: ctx.role as UserContext['role'],
+      tenantId: ctx.tenantId,
+      permissions: []
     }
 
     const permission = { resource, action }
@@ -58,10 +52,12 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
-export async function POST(request: NextRequest) {
+export const POST = withTenantContext(async (request: NextRequest) => {
   try {
+    const ctx = getTenantContext()!
+
     const body = await request.json()
     const { permissions } = body
     
@@ -72,19 +68,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const token = await getToken({ req: request })
-    if (!token) {
-      return NextResponse.json(
-        { allowed: false, reason: '未登录' },
-        { status: 401 }
-      )
-    }
-
     const user: UserContext = {
-      id: token.sub as string,
-      role: token.role as any,
-      tenantId: token.tenantId as string,
-      permissions: token.permissions as string[] || []
+      id: ctx.userId,
+      role: ctx.role as UserContext['role'],
+      tenantId: ctx.tenantId,
+      permissions: []
     }
 
     const results = permissions.map((perm: { resource: string; action: string }) => {
@@ -119,4 +107,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})

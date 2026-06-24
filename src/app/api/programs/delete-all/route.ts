@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
 // 删除所有节目
-export async function DELETE(request: Request) {
+export const DELETE = withTenantContext(async (request: Request) => {
   try {
-    const session = await getServerSession(authOptions);
+    const ctx = getTenantContext()!;
     
     // 验证管理员权限
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN')) {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '未授权访问' },
         { status: 401 }
@@ -21,7 +20,7 @@ export async function DELETE(request: Request) {
     const skipWithScores = searchParams.get('skipWithScores') === 'true'; // 是否跳过有评分记录的节目
     const force = searchParams.get('force') === 'true'; // 强制删除所有节目，包括有评分记录的
 
-    // 获取所有节目
+    // 获取所有节目 (tenant isolation auto-added by extension)
     const allPrograms = await prisma.program.findMany({
       select: {
         id: true,
@@ -42,7 +41,7 @@ export async function DELETE(request: Request) {
     if (programsWithScores.length > 0 && !force) {
       if (skipWithScores) {
         // 只删除没有评分记录的节目
-        await deletePrograms(programsWithoutScores.map(p => p.id), session);
+        await deletePrograms(programsWithoutScores.map(p => p.id));
         
         return NextResponse.json({
           success: true,
@@ -65,7 +64,7 @@ export async function DELETE(request: Request) {
     }
     
     // 没有评分记录或者是强制删除模式，删除所有节目
-    const result = await deletePrograms(allPrograms.map(p => p.id), session);
+    const result = await deletePrograms(allPrograms.map(p => p.id));
     
     return NextResponse.json({
       success: true,
@@ -81,10 +80,10 @@ export async function DELETE(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 // 辅助函数：删除指定ID的节目
-async function deletePrograms(programIds: string[], session: any) {
+async function deletePrograms(programIds: string[]) {
   // 使用事务确保所有操作成功
   const result = await prisma.$transaction(async (tx) => {
     // 如果需要强制删除，先删除评分记录
@@ -131,8 +130,7 @@ async function deletePrograms(programIds: string[], session: any) {
   // 记录审计日志
   await prisma.auditLog.create({
     data: {
-      tenantId: session.user.tenantId,
-      userId: session.user.id,
+      userId: getTenantContext()!.userId,
       action: 'DELETE_ALL_PROGRAMS',
       targetId: 'programs',
       details: {

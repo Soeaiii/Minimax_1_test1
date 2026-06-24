@@ -1,29 +1,19 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 import { cleanupAuditLogs } from '@/lib/auditLogCleanup';
 
 // 获取单个排名
-export async function GET(
+export const GET = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
 
     const { id } = await params;
 
     const ranking = await prisma.ranking.findUnique({
-      where: { id, tenantId: session.user.tenantId },
+      where: { id },
       include: {
         program: true,
         competition: true,
@@ -45,23 +35,15 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});
 
 // 手动调整单个排名
-export async function PUT(
+export const PUT = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     const { id } = await params;
     const body = await request.json();
@@ -74,7 +56,7 @@ export async function PUT(
     
     // 检查排名是否存在且属于同一租户
     const existingRanking = await prisma.ranking.findUnique({
-      where: { id, tenantId: session.user.tenantId },
+      where: { id },
     });
     
     if (!existingRanking) {
@@ -98,8 +80,8 @@ export async function PUT(
       // 记录审计日志
       await tx.auditLog.create({
         data: {
-          tenantId: session.user.tenantId,
-          userId,
+          tenantId: ctx.tenantId,
+          userId: ctx.userId,
           action: 'MANUAL_UPDATE_RANKING',
           targetId: id,
           details: {
@@ -120,29 +102,21 @@ export async function PUT(
       { status: 500 }
     );
   }
-}
+});
 
 // 刷新比赛排名
-export async function POST(
+export const POST = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     const { id: competitionId } = await params;
     
     // 检查比赛是否存在且属于同一租户
     const competition = await prisma.competition.findUnique({
-      where: { id: competitionId, tenantId: session.user.tenantId },
+      where: { id: competitionId },
       include: {
         participantPrograms: {
           include: {
@@ -222,7 +196,7 @@ export async function POST(
             rank: i + 1,
             totalScore: programScores[i].totalScore,
             updateType: 'AUTO',
-            tenantId: session.user.tenantId,
+            // tenantId auto-injected by Prisma extension
           },
         });
         rankings.push(ranking);
@@ -231,8 +205,8 @@ export async function POST(
       // 记录审计日志
       await tx.auditLog.create({
         data: {
-          tenantId: session.user.tenantId,
-          userId: session.user.id,
+          tenantId: ctx.tenantId,
+          userId: ctx.userId,
           action: 'REFRESH_RANKINGS',
           targetId: competitionId,
           details: {
@@ -265,4 +239,4 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+});

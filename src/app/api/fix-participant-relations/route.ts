@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
 // 修复选手和节目的关联关系
-export async function POST() {
+export const POST = withTenantContext(async () => {
   try {
-    const session = await getServerSession(authOptions);
+    const ctx = getTenantContext()!;
     
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN')) {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '权限不足' },
         { status: 403 }
@@ -115,8 +114,7 @@ export async function POST() {
     // 记录审计日志
     await prisma.auditLog.create({
       data: {
-        userId: session.user.id,
-        tenantId: session.user.tenantId,
+        userId: ctx.userId,
         action: 'FIX_PARTICIPANT_RELATIONS',
         targetId: 'system',
         details: {
@@ -140,4 +138,4 @@ export async function POST() {
       { status: 500 }
     );
   }
-}
+});

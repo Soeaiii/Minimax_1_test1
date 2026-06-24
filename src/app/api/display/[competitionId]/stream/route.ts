@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 interface JudgeScore {
   judge: {
@@ -167,13 +169,49 @@ async function getCurrentProgramScores(competitionId: string, selectedJudgeIds?:
   }
 }
 
-// SSE 端点
+// 鉴权辅助函数：session 或 publicToken
+async function authDisplayAccess(competitionId: string, request: Request): Promise<boolean> {
+  // 1. 检查已登录用户
+  const competition = await prisma.competition.findUnique({
+    where: { id: competitionId },
+    select: { tenantId: true },
+  });
+  if (!competition) return false;
+
+  const session = await getServerSession(authOptions);
+  const isLoggedInUser = session?.user && (session.user as any).tenantId === competition.tenantId;
+  if (isLoggedInUser) return true;
+
+  // 2. 检查 publicToken
+  const { searchParams } = new URL(request.url);
+  const token = searchParams.get('token');
+  const displaySettings = await prisma.displaySettings.findUnique({
+    where: { competitionId },
+    select: { publicToken: true },
+  });
+  if (displaySettings?.publicToken && token === displaySettings.publicToken) {
+    return true;
+  }
+
+  return false;
+}
+
+// SSE 端点（支持 session 和 publicToken 两种鉴权）
 export async function GET(
   request: Request,
   context: { params: Promise<{ competitionId: string }> }
 ) {
   const params = await context.params;
   const competitionId = params.competitionId;
+
+  // 鉴权
+  const authorized = await authDisplayAccess(competitionId, request);
+  if (!authorized) {
+    return new Response(JSON.stringify({ error: '未授权访问' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 
   // 创建 SSE 响应
   const encoder = new TextEncoder();
@@ -282,4 +320,4 @@ export async function GET(
       'Access-Control-Allow-Headers': 'Cache-Control',
     },
   });
-} 
+}

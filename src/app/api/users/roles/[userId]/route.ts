@@ -1,21 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 import { $Enums } from '@prisma/client';
 
 // 更新用户角色
-export async function PUT(
+export const PUT = withTenantContext(async (
   request: NextRequest,
   { params }: { params: Promise<{ userId: string }> }
-) {
+) => {
   const { userId } = await params
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
+    const ctx = getTenantContext()!;
+
     // 只有管理员可以修改用户角色
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN')) {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '无权限修改用户角色' },
         { status: 403 }
@@ -25,7 +23,7 @@ export async function PUT(
     // userId已在函数开头解构
     const body = await request.json();
     const { role, reason } = body;
-    
+
     // 验证角色值
     if (!role || !Object.values($Enums.UserRole).includes(role)) {
       return NextResponse.json(
@@ -33,7 +31,7 @@ export async function PUT(
         { status: 400 }
       );
     }
-    
+
     // 检查目标用户是否存在
     const targetUser = await prisma.user.findUnique({
       where: { id: userId },
@@ -44,24 +42,24 @@ export async function PUT(
         role: true,
       },
     });
-    
+
     if (!targetUser) {
       return NextResponse.json(
         { error: '用户不存在' },
         { status: 404 }
       );
     }
-    
+
     // 防止修改自己的角色
-    if (userId === session.user.id) {
+    if (userId === ctx.userId) {
       return NextResponse.json(
         { error: '不能修改自己的角色' },
         { status: 400 }
       );
     }
-    
+
     // 只有 SUPER_ADMIN 才能将用户设为 SUPER_ADMIN
-    if (role === 'SUPER_ADMIN' && session.user.role !== 'SUPER_ADMIN') {
+    if (role === 'SUPER_ADMIN' && ctx.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '只有超级管理员可以设置超级管理员角色' },
         { status: 403 }
@@ -75,7 +73,7 @@ export async function PUT(
         user: targetUser,
       });
     }
-    
+
     // 更新用户角色
     const updatedUser = await prisma.user.update({
       where: { id: userId },
@@ -88,12 +86,11 @@ export async function PUT(
         updatedAt: true,
       },
     });
-    
+
     // 记录审计日志
     await prisma.auditLog.create({
       data: {
-        tenantId: session.user.tenantId,
-        userId: session.user.id,
+        userId: ctx.userId,
         action: 'UPDATE_USER_ROLE',
         targetId: userId,
         details: {
@@ -108,7 +105,7 @@ export async function PUT(
         },
       },
     });
-    
+
     return NextResponse.json({
       message: '用户角色更新成功',
       user: updatedUser,
@@ -120,20 +117,19 @@ export async function PUT(
       { status: 500 }
     );
   }
-}
+});
 
 // 删除用户（软删除）
-export async function DELETE(
+export const DELETE = withTenantContext(async (
   request: NextRequest,
   { params }: { params: Promise<{ userId: string }> }
-) {
+) => {
   const { userId } = await params
   try {
-    // @ts-ignore 暂时忽略类型错误
-    const session = await getServerSession(authOptions);
-    
+    const ctx = getTenantContext()!;
+
     // 只有管理员可以删除用户
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN')) {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '无权限删除用户' },
         { status: 403 }
@@ -143,7 +139,7 @@ export async function DELETE(
     // userId已在函数开头解构
     const body = await request.json();
     const { reason } = body;
-    
+
     // 检查目标用户是否存在
     const targetUser = await prisma.user.findUnique({
       where: { id: userId },
@@ -155,29 +151,29 @@ export async function DELETE(
         isDeleted: true,
       },
     });
-    
+
     if (!targetUser) {
       return NextResponse.json(
         { error: '用户不存在' },
         { status: 404 }
       );
     }
-    
+
     if (targetUser.isDeleted) {
       return NextResponse.json(
         { error: '用户已被删除' },
         { status: 400 }
       );
     }
-    
+
     // 防止删除自己
-    if (userId === session.user.id) {
+    if (userId === ctx.userId) {
       return NextResponse.json(
         { error: '不能删除自己的账户' },
         { status: 400 }
       );
     }
-    
+
     // 软删除用户
     await prisma.user.update({
       where: { id: userId },
@@ -185,12 +181,11 @@ export async function DELETE(
         isDeleted: true,
       },
     });
-    
+
     // 记录审计日志
     await prisma.auditLog.create({
       data: {
-        tenantId: session.user.tenantId,
-        userId: session.user.id,
+        userId: ctx.userId,
         action: 'DELETE_USER',
         targetId: userId,
         details: {
@@ -204,7 +199,7 @@ export async function DELETE(
         },
       },
     });
-    
+
     return NextResponse.json({
       message: '用户删除成功',
     });
@@ -215,4 +210,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-}
+});

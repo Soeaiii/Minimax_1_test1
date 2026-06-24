@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "npx playwright test",
+    "test:ui": "npx playwright test --ui",
     "dbpush": "npx prisma db push",
     "generate-templates": "node scripts/generate-templates.js",
     "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"

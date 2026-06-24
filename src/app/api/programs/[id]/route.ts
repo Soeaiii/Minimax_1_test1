@@ -1,24 +1,17 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
 // 获取单个节目详情
-export async function GET(
+export const GET = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: '未授权访问' }, { status: 401 });
-    }
-
     const { id } = await params;
     
     const program = await prisma.program.findUnique({
-      where: { id, tenantId: session.user.tenantId },
+      where: { id },
       include: {
         competition: {
           select: { id: true, name: true, organizerId: true },
@@ -53,23 +46,15 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});
 
 // 更新节目
-export async function PUT(
+export const PUT = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     const { id } = await params;
     const body = await request.json();
@@ -85,7 +70,7 @@ export async function PUT(
     
     // 检查节目是否存在且属于同一租户
     const existingProgram = await prisma.program.findUnique({
-      where: { id, tenantId: session.user.tenantId },
+      where: { id },
       include: {
         competition: true,
         participantPrograms: {
@@ -102,7 +87,7 @@ export async function PUT(
     }
 
     // 检查权限
-    if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && existingProgram.competition.organizerId !== session.user.id) {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN' && existingProgram.competition.organizerId !== ctx.userId) {
       return NextResponse.json(
         { error: '您没有权限修改此节目' },
         { status: 403 }
@@ -110,7 +95,7 @@ export async function PUT(
     }
     
     // 构建更新数据
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       ...(name && { name }),
       ...(description !== undefined && { description }),
       ...(order && { order }),
@@ -196,8 +181,7 @@ export async function PUT(
     try {
       await prisma.auditLog.create({
         data: {
-          tenantId: session.user.tenantId,
-          userId: session.user.id,
+          userId: ctx.userId,
           action: 'UPDATE_PROGRAM',
           targetId: id,
           details: {
@@ -217,29 +201,21 @@ export async function PUT(
       { status: 500 }
     );
   }
-}
+});
 
 // 删除节目
-export async function DELETE(
+export const DELETE = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     const { id } = await params;
     
     // 检查节目是否存在且属于同一租户
     const existingProgram = await prisma.program.findUnique({
-      where: { id, tenantId: session.user.tenantId },
+      where: { id },
       include: {
         competition: true,
       },
@@ -253,7 +229,7 @@ export async function DELETE(
     }
 
     // 检查权限
-    if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && existingProgram.competition.organizerId !== session.user.id) {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN' && existingProgram.competition.organizerId !== ctx.userId) {
       return NextResponse.json(
         { error: '您没有权限删除此节目' },
         { status: 403 }
@@ -269,8 +245,7 @@ export async function DELETE(
     try {
       await prisma.auditLog.create({
         data: {
-          tenantId: session.user.tenantId,
-          userId: session.user.id,
+          userId: ctx.userId,
           action: 'DELETE_PROGRAM',
           targetId: id,
           details: {
@@ -290,23 +265,15 @@ export async function DELETE(
       { status: 500 }
     );
   }
-}
+});
 
 // 更新节目状态（最简化版本，避免复杂查询和事务）
-export async function PATCH(
+export const PATCH = withTenantContext(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    // @ts-ignore
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     const { id } = await params;
     const body = await request.json();
@@ -322,7 +289,7 @@ export async function PATCH(
     
     // 简单检查节目是否存在，不使用复杂的include
     const existingProgram = await prisma.program.findUnique({
-      where: { id, tenantId: session.user.tenantId },
+      where: { id },
       select: {
         id: true,
         currentStatus: true,
@@ -353,7 +320,7 @@ export async function PATCH(
     }
 
     // 检查权限
-    if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && competition.organizerId !== session.user.id) {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN' && competition.organizerId !== ctx.userId) {
       return NextResponse.json(
         { error: '您没有权限修改此节目状态' },
         { status: 403 }
@@ -387,4 +354,4 @@ export async function PATCH(
       { status: 500 }
     );
   }
-}
+});

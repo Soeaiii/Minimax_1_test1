@@ -16,7 +16,6 @@ import { toast } from 'sonner';
 const tenantFormSchema = z.object({
   name: z.string().min(2, { message: '租户名称至少需要2个字符' }),
   domain: z.string().optional(),
-  plan: z.enum(['FREE', 'BASIC', 'PRO', 'ENTERPRISE']).default('FREE'),
   contactEmail: z.string().email().optional().or(z.literal('')),
   settings: z.string().optional(),
   adminEmail: z.string().email({ message: '请输入有效的邮箱' }).optional().or(z.literal('')),
@@ -47,7 +46,6 @@ export default function NewTenantPage() {
     defaultValues: {
       name: '',
       domain: '',
-      plan: 'FREE',
       contactEmail: '',
       settings: JSON.stringify({
         allowRegistration: true,
@@ -82,7 +80,6 @@ export default function NewTenantPage() {
         body: JSON.stringify({
           name: data.name,
           domain: data.domain || null,
-          plan: data.plan || 'FREE',
           contactEmail: data.contactEmail || null,
           settings: parsedSettings,
           adminEmail: data.adminEmail || undefined,
@@ -164,29 +161,6 @@ export default function NewTenantPage() {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="plan"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>套餐</FormLabel>
-                  <FormControl>
-                    <select
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      value={field.value}
-                      onChange={field.onChange}
-                    >
-                      <option value="FREE">免费版 (10用户/3比赛)</option>
-                      <option value="BASIC">基础版 (100用户/10比赛)</option>
-                      <option value="PRO">专业版 (500用户/50比赛)</option>
-                      <option value="ENTERPRISE">企业版 (5000用户/不限比赛)</option>
-                    </select>
-                  </FormControl>
-                  <FormDescription>选择套餐将自动设置配额</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <FormField
               control={form.control}
@@ -211,7 +185,7 @@ export default function NewTenantPage() {
                   <FormLabel>Settings (JSON)</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder='{"allowRegistration": true, "maxUsers": 100}'
+                      placeholder='{"allowRegistration": true, "features": ["competitions"]}'
                       className="min-h-32 font-mono"
                       {...field}
                     />

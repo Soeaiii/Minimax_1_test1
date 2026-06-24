@@ -3,23 +3,15 @@ import { unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
 // 删除单个文件
-export async function DELETE(
+export const DELETE = withTenantContext(async (
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     const params = await context.params;
 
@@ -27,7 +19,6 @@ export async function DELETE(
     const file = await prisma.file.findUnique({
       where: {
         id: params.id,
-        tenantId: session.user.tenantId,
       },
       include: {
         participantPrograms: true,
@@ -45,7 +36,7 @@ export async function DELETE(
     // 检查文件是否被使用（如果有关联的节目或比赛，可能需要额外权限检查）
     const hasAssociations = file.programs.length > 0 || file.competitions.length > 0;
 
-    if (hasAssociations && session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ORGANIZER') {
+    if (hasAssociations && ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN' && ctx.role !== 'ORGANIZER') {
       return NextResponse.json(
         { error: '文件正在使用中，无法删除' },
         { status: 400 }
@@ -74,8 +65,7 @@ export async function DELETE(
     try {
       await prisma.auditLog.create({
         data: {
-          userId: session.user.id,
-          tenantId: session.user.tenantId,
+          userId: ctx.userId,
           action: 'DELETE_FILE',
           targetId: params.id,
           details: {
@@ -104,4 +94,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-}
+});

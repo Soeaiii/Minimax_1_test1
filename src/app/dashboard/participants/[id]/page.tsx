@@ -21,6 +21,19 @@ import {
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 
+interface ParticipantProgramItem {
+  id: string;
+  name: string;
+  description?: string;
+  order: number;
+  currentStatus: string;
+  competition: {
+    id: string;
+    name: string;
+    status: string;
+  };
+}
+
 interface Participant {
   id: string;
   name: string;
@@ -29,18 +42,11 @@ interface Participant {
   contact?: string;
   createdAt: string;
   updatedAt: string;
-  programs: Array<{
-    id: string;
-    name: string;
-    description?: string;
-    order: number;
-    currentStatus: string;
-    competition: {
-      id: string;
-      name: string;
-      status: string;
-    };
+  // API returns participantPrograms (join table); normalize to programs[]
+  participantPrograms?: Array<{
+    program: ParticipantProgramItem;
   }>;
+  programs?: ParticipantProgramItem[];
 }
 
 export default function ParticipantDetailPage() {
@@ -65,7 +71,13 @@ export default function ParticipantDetailPage() {
       const response = await fetch(`/api/participants/${participantId}`);
       if (response.ok) {
         const data = await response.json();
-        setParticipant(data);
+        // Normalize: API returns participantPrograms join rows; flatten to programs[]
+        const programs = Array.isArray(data.participantPrograms)
+          ? data.participantPrograms
+              .map((pp: { program: ParticipantProgramItem }) => pp.program)
+              .filter(Boolean)
+          : (data.programs ?? []);
+        setParticipant({ ...data, programs });
       } else if (response.status === 404) {
         setError('选手不存在');
       } else {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcrypt';
-import { getAuthSession, auditLog, checkQuota } from '@/lib/tenant-guard';
+import { getAuthSession, auditLog } from '@/lib/tenant-guard';
 
 /**
  * 租户内用户管理 API
@@ -73,9 +73,6 @@ export async function POST(
     return NextResponse.json({ error: '姓名、邮箱和密码为必填项' }, { status: 400 });
   }
 
-  // 配额校验
-  const quota = await checkQuota(tenantId, 'users');
-  if ('error' in quota) return quota.error;
 
   // 邮箱唯一性（同一租户内）
   const existing = await prisma.user.findFirst({ where: { email, tenantId } });

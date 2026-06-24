@@ -50,8 +50,7 @@ export default async function EditProgramPage({ params }: PageProps) {
       participantPrograms: {
         select: {
           id: true,
-          name: true,
-          team: true,
+          participantId: true,
         }
       },
     }
@@ -97,7 +96,7 @@ export default async function EditProgramPage({ params }: PageProps) {
     competitionId: program.competitionId,
     order: program.order,
     currentStatus: program.currentStatus,
-    participantIds: program.participantPrograms.map(pp => pp.participant.id),
+    participantIds: program.participantPrograms.map(pp => pp.participantId),
   };
 
   return (

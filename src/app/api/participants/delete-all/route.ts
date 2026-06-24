@@ -1,35 +1,25 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { withTenantContext, getTenantContext } from '@/lib/tenant-context';
 
-export async function DELETE() {
+export const DELETE = withTenantContext(async () => {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
-    }
+    const ctx = getTenantContext()!;
 
     // 只有管理员可以执行此操作
-    if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN') {
+    if (ctx.role !== 'ADMIN' && ctx.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: '只有管理员可以删除全部选手' },
         { status: 403 }
       );
     }
-
     let deletedCount = 0;
     let updatedPrograms = 0;
 
     await prisma.$transaction(async (tx) => {
       // 1. 获取当前租户的所有参与者信息用于审计日志
       const allParticipants = await tx.participant.findMany({
-        where: {
-          tenantId: session.user.tenantId
-        },
+        where: {},
         select: {
           id: true,
           name: true,
@@ -47,7 +37,6 @@ export async function DELETE() {
       // 2. 清理当前租户节目中已删除参与者的关联
       const allPrograms = await tx.program.findMany({
         where: {
-          tenantId: session.user.tenantId,
           participantIds: {
             isEmpty: false
           }
@@ -75,8 +64,8 @@ export async function DELETE() {
       // 4. 记录审计日志
       await tx.auditLog.create({
         data: {
-          userId: session.user.id,
-          tenantId: session.user.tenantId,
+          userId: ctx.userId,
+          tenantId: ctx.tenantId,
           action: 'DELETE_ALL_PARTICIPANTS',
           targetId: 'participants',
           details: {
@@ -90,7 +79,7 @@ export async function DELETE() {
               programCount: p.programIds?.length || 0
             })),
             timestamp: new Date().toISOString(),
-            operator: session.user.name || session.user.email
+            operator: ctx.userId
           },
         },
       });
@@ -112,4 +101,4 @@ export async function DELETE() {
       { status: 500 }
     );
   }
-}
+});

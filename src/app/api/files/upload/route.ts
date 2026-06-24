@@ -3,17 +3,12 @@ import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { withTenantContext } from '@/lib/tenant-context';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
-export async function POST(request: NextRequest) {
+export const POST = withTenantContext(async (request: NextRequest) => {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: '未授权访问' }, { status: 401 });
-    }
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
@@ -55,7 +50,6 @@ export async function POST(request: NextRequest) {
     // 保存到数据库
     const savedFile = await prisma.file.create({
       data: {
-        tenantId: session.user.tenantId,
         filename: filename,
         path: `/uploads/${filename}`,
         mimetype: file.type || 'application/octet-stream',
@@ -83,4 +77,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+});
