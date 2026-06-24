@@ -467,7 +467,7 @@ export default function AuditLogsPage() {
                           <Badge className={actionInfo.color}>
                             {actionInfo.label}
                           </Badge>
-                          <span className="text-sm font-medium">{log.user.name}</span>
+                          <span className="text-sm font-medium">{log.user?.name || '系统'}</span>
                           <span className="text-sm text-muted-foreground">
                             {format(new Date(log.timestamp), 'yyyy年MM月dd日 HH:mm:ss', { locale: zhCN })}
                           </span>

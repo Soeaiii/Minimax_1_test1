@@ -93,9 +93,11 @@ export const GET = withTenantContext(async () => {
         take: 5
       }),
 
-      // 最近的审计日志
+      // 最近的审计日志（排除无用户的公开报名日志）
       prisma.auditLog.findMany({
-        where: {},
+        where: {
+          userId: { not: null }
+        },
         include: {
           user: {
             select: {

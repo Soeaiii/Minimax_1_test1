@@ -10,9 +10,9 @@ interface Competition {
   name: string;
   status: string;
   createdAt: string;
-  organizer: {
+  organizer?: {
     name: string;
-  };
+  } | null;
   _count: {
     programs: number;
   };
@@ -23,9 +23,9 @@ interface AuditLog {
   action: string;
   timestamp: string;
   targetId?: string;
-  user: {
+  user?: {
     name: string;
-  };
+  } | null;
 }
 
 interface RecentActivitiesProps {
@@ -112,7 +112,7 @@ export function RecentActivities({ competitions, auditLogs }: RecentActivitiesPr
                     </div>
                     <div className="flex items-center space-x-2 text-xs text-muted-foreground">
                       <User className="h-3 w-3" />
-                      <span>{competition.organizer.name}</span>
+                      <span>{competition.organizer?.name || '未知'}</span>
                       <span>•</span>
                       <span>{competition._count.programs} 个节目</span>
                       <span>•</span>
@@ -151,12 +151,12 @@ export function RecentActivities({ competitions, auditLogs }: RecentActivitiesPr
                 <div key={log.id} className="flex items-start space-x-3">
                   <Avatar className="h-6 w-6">
                     <AvatarFallback className="text-xs">
-                      {log.user.name.charAt(0)}
+                      {log.user?.name?.charAt(0) || '?'}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 space-y-1">
                     <p className="text-xs">
-                      <span className="font-medium">{log.user.name}</span>
+                      <span className="font-medium">{log.user?.name || '系统'}</span>
                       <span className="text-muted-foreground"> {getActionText(log.action)}</span>
                     </p>
                     <p className="text-xs text-muted-foreground">

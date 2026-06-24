@@ -299,8 +299,8 @@ export default function UserPermissionsPage() {
                       <div className="border rounded-lg p-4">
                         <h3 className="font-semibold mb-2">用户信息</h3>
                         <div className="space-y-2 text-sm">
-                          <div><strong>姓名:</strong> {userPermissions.user.name}</div>
-                          <div><strong>邮箱:</strong> {userPermissions.user.email}</div>
+                          <div><strong>姓名:</strong> {userPermissions?.user?.name || '未知'}</div>
+                          <div><strong>邮箱:</strong> {userPermissions?.user?.email || '未知'}</div>
                           <div><strong>创建时间:</strong> {new Date(userPermissions.user.createdAt).toLocaleDateString('zh-CN')}</div>
                         </div>
                       </div>
@@ -423,8 +423,8 @@ export default function UserPermissionsPage() {
                         <TableRow key={log.id}>
                           <TableCell>
                             <div>
-                              <div className="font-medium">{log.user.name}</div>
-                              <div className="text-sm text-muted-foreground">{log.user.email}</div>
+                              <div className="font-medium">{log.user?.name || '系统'}</div>
+                              <div className="text-sm text-muted-foreground">{log.user?.email || ''}</div>
                             </div>
                           </TableCell>
                           <TableCell>
